@@ -82,6 +82,15 @@ class _PengingatScreenState extends State<PengingatScreen> {
         appBar: AppBar(
           title: const Text('Pengingat Pajak & Servis'),
           backgroundColor: AppColors.primary,
+          iconTheme: const IconThemeData(color: Colors.white),
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
         body: body,
         floatingActionButton: FloatingActionButton.extended(

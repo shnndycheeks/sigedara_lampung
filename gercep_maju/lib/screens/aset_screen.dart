@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import '../services/navigation_service.dart';
+import '../services/database_service.dart';
 import 'pengingat_screen.dart';
 
 class AsetScreen extends StatefulWidget {
-  const AsetScreen({super.key});
+  final VoidCallback? onBack;
+  const AsetScreen({super.key, this.onBack});
 
   @override
   State<AsetScreen> createState() => _AsetScreenState();
@@ -15,16 +16,110 @@ class _AsetScreenState extends State<AsetScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
 
+  bool _loadingAset = true;
+  String? _errorAset;
+  List<Map<String, dynamic>> _inventarisData = [];
+
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
+    _loadAset();
   }
 
   @override
   void dispose() {
     _tab.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAset() async {
+    try {
+      final data = await DatabaseService.getAssets();
+
+      final mapped = data.map((a) {
+        final kondisiText = (a['kondisi'] ?? 'baik').toString().toLowerCase();
+        final statusText = (a['status'] ?? 'tersedia').toString().toLowerCase();
+
+        double kondisiValue;
+        String kondisiLabel;
+        Color kondisiColor;
+
+        if (kondisiText == 'sangat baik') {
+          kondisiValue = 0.96;
+          kondisiLabel = 'Sangat Baik';
+          kondisiColor = AppColors.success;
+        } else if (kondisiText == 'baik') {
+          kondisiValue = 0.85;
+          kondisiLabel = 'Baik';
+          kondisiColor = AppColors.success;
+        } else if (kondisiText == 'cukup') {
+          kondisiValue = 0.60;
+          kondisiLabel = 'Cukup';
+          kondisiColor = AppColors.warning;
+        } else if (kondisiText == 'rusak' || kondisiText == 'rusak berat') {
+          kondisiValue = 0.30;
+          kondisiLabel = 'Rusak';
+          kondisiColor = AppColors.error;
+        } else if (kondisiText == 'rusak ringan') {
+          kondisiValue = 0.45;
+          kondisiLabel = 'Rusak Ringan';
+          kondisiColor = AppColors.warning;
+        } else if (kondisiText == 'hilang') {
+          kondisiValue = 0.10;
+          kondisiLabel = 'Hilang';
+          kondisiColor = AppColors.error;
+        } else {
+          kondisiValue = 0.75;
+          kondisiLabel = kondisiText.isEmpty ? 'Baik' : kondisiText;
+          kondisiColor = AppColors.info;
+        }
+
+        return {
+          'id': a['id'],
+          'nama': a['nama'] ?? '-',
+          'kode': a['kode_asset'] ?? a['kode'] ?? '-',
+          'kategori': a['kategori'] ?? '-',
+          'lokasi': a['lokasi'] ?? '-',
+          'deskripsi': a['deskripsi'] ?? '-',
+          'status': statusText,
+          'kondisi': kondisiValue,
+          'lastServis': '-',
+          'nextServis': '-',
+          'aset': 1,
+          'kondisiLabel': kondisiLabel,
+          'kondisiColor': kondisiColor,
+        };
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _inventarisData = mapped;
+        _loadingAset = false;
+        _errorAset = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingAset = false;
+        _errorAset = e.toString();
+      });
+    }
+  }
+
+  int get _totalAset => _inventarisData.length;
+
+  int get _asetTersedia {
+    return _inventarisData.where((a) => a['status'] == 'tersedia').length;
+  }
+
+  int get _asetPerluServis {
+    return _inventarisData.where((a) {
+      final kondisi = a['kondisi'] as double;
+      return kondisi < 0.65;
+    }).length;
   }
 
   @override
@@ -42,7 +137,7 @@ class _AsetScreenState extends State<AsetScreen>
             size: 20,
           ),
           onPressed: () {
-            NavigationService.goHomeUser?.call();
+            widget.onBack?.call();
           },
         ),
         actions: [
@@ -81,62 +176,83 @@ class _AsetScreenState extends State<AsetScreen>
           const PengingatScreen(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddAsetDialog(context),
-        backgroundColor: AppColors.primary,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Tambah Aset',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-            fontSize: 13,
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildInventarisTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Summary cards
-        Row(
-          children: [
-            _SummaryCard(
-              value: '47',
-              label: 'Total Ruangan',
-              icon: Icons.meeting_room_outlined,
-              color: AppColors.primary,
-            ),
-            const SizedBox(width: 10),
-            _SummaryCard(
-              value: '312',
-              label: 'Total Aset',
-              icon: Icons.inventory_2_outlined,
-              color: const Color(0xFF059669),
-            ),
-            const SizedBox(width: 10),
-            _SummaryCard(
-              value: '8',
-              label: 'Perlu Servis',
-              icon: Icons.warning_amber_rounded,
-              color: AppColors.warning,
+    if (_loadingAset) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (_errorAset != null) {
+      return RefreshIndicator(
+        onRefresh: _loadAset,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: const [
+            SizedBox(height: 120),
+            EmptyState(
+              icon: Icons.error_outline,
+              title: 'Gagal memuat aset',
+              subtitle: 'Cek koneksi atau policy Supabase',
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Inventaris Ruangan'),
-        const SizedBox(height: 12),
-        ..._inventarisData.map(
-          (d) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _InventarisTile(data: d),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAset,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              _SummaryCard(
+                value: _asetTersedia.toString(),
+                label: 'Tersedia',
+                icon: Icons.check_circle_outline,
+                color: AppColors.success,
+              ),
+              const SizedBox(width: 10),
+              _SummaryCard(
+                value: _totalAset.toString(),
+                label: 'Total Aset',
+                icon: Icons.inventory_2_outlined,
+                color: const Color(0xFF059669),
+              ),
+              const SizedBox(width: 10),
+              _SummaryCard(
+                value: _asetPerluServis.toString(),
+                label: 'Perlu Servis',
+                icon: Icons.warning_amber_rounded,
+                color: AppColors.warning,
+              ),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+          const SectionHeader(title: 'Inventaris Aset'),
+          const SizedBox(height: 12),
+          if (_inventarisData.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 80),
+              child: EmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'Belum ada aset',
+                subtitle: 'Data aset dari Supabase akan muncul di sini',
+              ),
+            )
+          else
+            ..._inventarisData.map(
+              (d) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _InventarisTile(data: d),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -155,68 +271,6 @@ class _AsetScreenState extends State<AsetScreen>
       ],
     );
   }
-
-  void _showAddAsetDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _FormTambahAset(),
-    );
-  }
-
-  final List<Map<String, dynamic>> _inventarisData = [
-    {
-      'nama': 'Ruang Rapat A',
-      'kode': 'GD-RA-001',
-      'kondisi': 0.92,
-      'lastServis': '15 Mar 2026',
-      'nextServis': '15 Jun 2026',
-      'aset': 12,
-      'kondisiLabel': 'Sangat Baik',
-      'kondisiColor': AppColors.success,
-    },
-    {
-      'nama': 'Aula Utama',
-      'kode': 'GD-AU-001',
-      'kondisi': 0.78,
-      'lastServis': '20 Feb 2026',
-      'nextServis': '20 Mei 2026',
-      'aset': 34,
-      'kondisiLabel': 'Baik',
-      'kondisiColor': AppColors.info,
-    },
-    {
-      'nama': 'Ruang Serbaguna',
-      'kode': 'GD-RS-001',
-      'kondisi': 0.55,
-      'lastServis': '10 Jan 2026',
-      'nextServis': '10 Apr 2026',
-      'aset': 28,
-      'kondisiLabel': 'Cukup',
-      'kondisiColor': AppColors.warning,
-    },
-    {
-      'nama': 'Lobby Utama',
-      'kode': 'GD-LB-001',
-      'kondisi': 0.88,
-      'lastServis': '5 Mar 2026',
-      'nextServis': '5 Jun 2026',
-      'aset': 15,
-      'kondisiLabel': 'Baik',
-      'kondisiColor': AppColors.success,
-    },
-    {
-      'nama': 'Ruang Server',
-      'kode': 'GD-SV-001',
-      'kondisi': 0.96,
-      'lastServis': '1 Apr 2026',
-      'nextServis': '1 Jul 2026',
-      'aset': 8,
-      'kondisiLabel': 'Sangat Baik',
-      'kondisiColor': AppColors.success,
-    },
-  ];
 
   final List<Map<String, dynamic>> _maintenanceLog = [
     {
@@ -266,6 +320,7 @@ class _SummaryCard extends StatelessWidget {
   final String value, label;
   final IconData icon;
   final Color color;
+
   const _SummaryCard({
     required this.value,
     required this.label,
@@ -323,6 +378,9 @@ class _InventarisTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final double kondisi = data['kondisi'] as double;
     final Color kondisiColor = data['kondisiColor'] as Color;
+    final String kategori = data['kategori']?.toString() ?? '-';
+    final String lokasi = data['lokasi']?.toString() ?? '-';
+
     return NeuCard(
       onTap: () => Navigator.push(
         context,
@@ -340,7 +398,7 @@ class _InventarisTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
-                  Icons.meeting_room_outlined,
+                  Icons.inventory_2_outlined,
                   color: AppColors.primary,
                   size: 20,
                 ),
@@ -352,8 +410,12 @@ class _InventarisTile extends StatelessWidget {
                   children: [
                     Text(data['nama'] as String, style: AppTextStyles.h4),
                     Text(
-                      'Kode: ${data['kode']} • ${data['aset']} aset',
+                      'Kode: ${data['kode']} • $kategori',
                       style: AppTextStyles.caption,
+                    ),
+                    Text(
+                      'Lokasi: $lokasi',
+                      style: AppTextStyles.caption.copyWith(fontSize: 10),
                     ),
                   ],
                 ),
@@ -396,13 +458,13 @@ class _InventarisTile extends StatelessWidget {
           Row(
             children: [
               const Icon(
-                Icons.build_outlined,
+                Icons.check_circle_outline,
                 size: 12,
                 color: AppColors.textSecondary,
               ),
               const SizedBox(width: 4),
               Text(
-                'Servis: ${data['nextServis']}',
+                'Status: ${data['status']}',
                 style: AppTextStyles.caption.copyWith(fontSize: 11),
               ),
             ],
@@ -421,17 +483,26 @@ class _DetailInventarisScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final double kondisi = data['kondisi'] as double;
     final Color kondisiColor = data['kondisiColor'] as Color;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(data['nama'] as String),
         backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Kondisi circle
             NeuCard(
               child: Column(
                 children: [
@@ -498,52 +569,39 @@ class _DetailInventarisScreen extends StatelessWidget {
                   const Text('Detail Aset', style: AppTextStyles.h3),
                   const SizedBox(height: 12),
                   _Row(
-                    label: 'Total Aset',
-                    value: '${data['aset']} item',
-                    icon: Icons.inventory_2_outlined,
+                    label: 'Kategori',
+                    value: data['kategori'] as String,
+                    icon: Icons.category_outlined,
                   ),
                   _Row(
-                    label: 'Servis Terakhir',
-                    value: data['lastServis'] as String,
-                    icon: Icons.history,
+                    label: 'Lokasi',
+                    value: data['lokasi'] as String,
+                    icon: Icons.place_outlined,
                   ),
                   _Row(
-                    label: 'Servis Berikut',
-                    value: data['nextServis'] as String,
-                    icon: Icons.schedule,
+                    label: 'Status',
+                    value: data['status'] as String,
+                    icon: Icons.check_circle_outline,
+                  ),
+                  _Row(
+                    label: 'Deskripsi',
+                    value: data['deskripsi'] as String,
+                    icon: Icons.notes_outlined,
                     isLast: true,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            // Daftar aset dummy
             NeuCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SectionHeader(title: 'Daftar Perabot & Aset'),
+                  const SectionHeader(title: 'Catatan'),
                   const SizedBox(height: 12),
-                  ..._asetItems.map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle_outline,
-                            size: 16,
-                            color: AppColors.success,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              item,
-                              style: AppTextStyles.body.copyWith(fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  Text(
+                    'Data ini hanya dapat dilihat oleh pegawai. Perubahan data aset dilakukan oleh admin.',
+                    style: AppTextStyles.bodySmall,
                   ),
                 ],
               ),
@@ -553,21 +611,13 @@ class _DetailInventarisScreen extends StatelessWidget {
       ),
     );
   }
-
-  static const List<String> _asetItems = [
-    'Meja Rapat (8 unit)',
-    'Kursi (24 unit)',
-    'AC Split 1.5 PK (2 unit)',
-    'LCD Proyektor (1 unit)',
-    'Whiteboard (1 unit)',
-    'Telepon PABX (1 unit)',
-  ];
 }
 
 class _Row extends StatelessWidget {
   final String label, value;
   final IconData icon;
   final bool isLast;
+
   const _Row({
     required this.label,
     required this.value,
@@ -621,6 +671,7 @@ class _MaintenanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color statusColor = data['statusColor'] as Color;
+
     return NeuCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -688,76 +739,27 @@ class _Chip extends StatelessWidget {
   final String label;
   const _Chip({required this.icon, required this.label});
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: AppColors.textSecondary),
-        const SizedBox(width: 4),
-        Text(label, style: AppTextStyles.caption.copyWith(fontSize: 11)),
-      ],
-    );
+  Color _iconColor() {
+    if (icon == Icons.calendar_today_outlined) return AppColors.primary;
+    return AppColors.textSecondary;
   }
-}
-
-class _FormTambahAset extends StatelessWidget {
-  const _FormTambahAset();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: _iconColor()),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: AppTextStyles.caption.copyWith(fontSize: 11),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
-            const Text('Tambah Aset Baru', style: AppTextStyles.h2),
-            const SizedBox(height: 20),
-            const AppTextField(
-              hint: 'Nama aset',
-              prefixIcon: Icons.inventory_2_outlined,
-            ),
-            const SizedBox(height: 12),
-            const AppTextField(
-              hint: 'Kode / nomor aset',
-              prefixIcon: Icons.qr_code_outlined,
-            ),
-            const SizedBox(height: 12),
-            const AppTextField(
-              hint: 'Lokasi / ruangan',
-              prefixIcon: Icons.place_outlined,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: GradientButton(
-                label: 'Simpan Aset',
-                icon: Icons.save_outlined,
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

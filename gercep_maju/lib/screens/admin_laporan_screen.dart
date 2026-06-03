@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 
 class AdminLaporanScreen extends StatefulWidget {
@@ -188,7 +187,7 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           decoration: BoxDecoration(
                             color: selected
-                                ? color.withOpacity(0.15)
+                                ? color.withValues(alpha:0.15)
                                 : AppColors.surfaceVariant,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
@@ -348,7 +347,7 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: _statusColor(item['status']).withOpacity(0.12),
+                      color: _statusColor(item['status']).withValues(alpha:0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -658,9 +657,9 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha:0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha:0.2)),
         ),
         child: Column(
           children: [
@@ -768,7 +767,7 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.1),
+                          color: AppColors.primary.withValues(alpha:0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
@@ -802,7 +801,7 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha:0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

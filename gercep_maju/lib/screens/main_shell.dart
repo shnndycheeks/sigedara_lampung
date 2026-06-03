@@ -4,7 +4,7 @@ import '../services/navigation_service.dart';
 import 'dashboard_screen.dart';
 import 'peminjaman_screen.dart';
 import 'kendaraan_screen.dart';
-import 'aset_screen.dart';
+import 'pengingat_screen.dart';
 import 'laporan_kerusakan_screen.dart';
 import 'profile_screen.dart';
 
@@ -17,32 +17,34 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
-  int _notifCount = 3;
+  final int _notifCount = 3;
+  late List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
     NavigationService.goHomeUser = goHome;
+    NavigationService.goToTabUser = goToTab;
+    _screens = [
+      const DashboardScreen(),
+      const PeminjamanScreen(),
+      const KendaraanScreen(),
+      const PengingatScreen(),
+      const LaporanKerusakanScreen(),
+      const ProfileScreen(),
+    ];
   }
 
   @override
   void dispose() {
     NavigationService.goHomeUser = null;
+    NavigationService.goToTabUser = null;
     super.dispose();
   }
 
   void goHome() => setState(() => _currentIndex = 0);
 
   void goToTab(int index) => setState(() => _currentIndex = index);
-
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    PeminjamanScreen(),
-    KendaraanScreen(),
-    AsetScreen(),
-    LaporanKerusakanScreen(),
-    ProfileScreen(),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +89,7 @@ class MainShellState extends State<MainShell> {
                     index: 1,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
+                    badge: _notifCount,
                   ),
                   _NavItem(
                     icon: Icons.directions_car_outlined,
@@ -97,18 +100,10 @@ class MainShellState extends State<MainShell> {
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
                   _NavItem(
-                    icon: Icons.inventory_2_outlined,
-                    activeIcon: Icons.inventory_2,
-                    label: 'Aset',
+                    icon: Icons.notifications_outlined,
+                    activeIcon: Icons.notifications,
+                    label: 'Pengingat',
                     index: 3,
-                    current: _currentIndex,
-                    onTap: (i) => setState(() => _currentIndex = i),
-                  ),
-                  _NavItem(
-                    icon: Icons.report_problem_outlined,
-                    activeIcon: Icons.report_problem,
-                    label: 'Laporan',
-                    index: 4,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
@@ -119,7 +114,6 @@ class MainShellState extends State<MainShell> {
                     index: 5,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
-                    badge: _notifCount,
                   ),
                 ],
               ),

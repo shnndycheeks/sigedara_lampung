@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
-import 'login_screen.dart';
 import 'notifikasi_screen.dart';
+import 'pengaturan_screen.dart';
+import 'role_selector_screen.dart';
+import 'admin_pegawai_screen.dart';
 
 class AdminProfileScreen extends StatefulWidget {
   const AdminProfileScreen({super.key});
@@ -52,7 +54,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                onPressed: () {},
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PengaturanScreen()),
+                ),
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -161,7 +166,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Info admin
                   NeuCard(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -194,7 +198,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Notifikasi
                   const Text('Notifikasi', style: AppTextStyles.h3),
                   const SizedBox(height: 10),
                   NeuCard(
@@ -230,7 +233,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Keamanan
                   const Text('Keamanan', style: AppTextStyles.h3),
                   const SizedBox(height: 10),
                   NeuCard(
@@ -256,14 +258,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                         _MenuRow(
                           icon: Icons.history,
                           label: 'Riwayat Login',
-                          onTap: () {},
+                          onTap: () => _showLoginHistoryDialog(context),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  // Manajemen
                   const Text('Manajemen', style: AppTextStyles.h3),
                   const SizedBox(height: 10),
                   NeuCard(
@@ -275,14 +276,24 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                       children: [
                         _MenuRow(
                           icon: Icons.group_outlined,
-                          label: 'Kelola Pengguna',
-                          onTap: () {},
+                          label: 'Kelola Pegawai',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AdminPegawaiScreen(),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, color: AppColors.divider),
                         _MenuRow(
                           icon: Icons.backup_outlined,
                           label: 'Backup Data',
-                          onTap: () {},
+                          onTap: () =>
+                              ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Backup berhasil dijadwalkan'),
+                            ),
+                          ),
                         ),
                         const Divider(height: 1, color: AppColors.divider),
                         _MenuRow(
@@ -292,14 +303,13 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                             'v1.0.0',
                             style: AppTextStyles.caption,
                           ),
-                          onTap: () {},
+                          onTap: () => _showAboutDialog(context),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  // Logout
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -333,10 +343,75 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
     );
   }
 
+  void _showLoginHistoryDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Riwayat Login', style: AppTextStyles.h3),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('• Hari ini, 08:30 — Android (emulator)'),
+              SizedBox(height: 6),
+              Text('• Kemarin, 17:45 — Android'),
+              SizedBox(height: 6),
+              Text('• 2 hari lalu, 09:12 — Android'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Tentang Aplikasi', style: AppTextStyles.h3),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_balance, size: 48, color: AppColors.primary),
+            SizedBox(height: 12),
+            Text(
+              'SIGEDARA LAMPUNG',
+              style: AppTextStyles.h2,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 4),
+            Text('Versi 1.0.0', textAlign: TextAlign.center),
+            SizedBox(height: 8),
+            Text(
+              'Sistem Manajemen Aset & Peminjaman\nKantor Biro Umum',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showChangePasswordDialog(BuildContext context) {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -380,6 +455,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 
   void _showLogoutDialog(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -399,9 +476,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const RoleSelectorScreen()),
                 (_) => false,
               );
             },
@@ -420,11 +496,11 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 class _ProfileInfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+
   const _ProfileInfoRow({
     required this.icon,
     required this.label,
@@ -456,6 +532,7 @@ class _SwitchRow extends StatelessWidget {
   final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
+
   const _SwitchRow({
     required this.label,
     required this.subtitle,
@@ -481,7 +558,7 @@ class _SwitchRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.gold,
+            activeThumbColor: AppColors.gold,
           ),
         ],
       ),
@@ -494,6 +571,7 @@ class _MenuRow extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Widget? trailing;
+
   const _MenuRow({
     required this.icon,
     required this.label,
@@ -529,6 +607,7 @@ class _MenuRow extends StatelessWidget {
 class _PassField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
+
   const _PassField({required this.label, required this.controller});
 
   @override

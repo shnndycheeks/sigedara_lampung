@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/navigation_service.dart';
 import 'admin_dashboard_screen.dart';
-import 'admin_persetujuan_screen.dart';
+import 'admin_peminjaman_screen.dart';
 import 'admin_kendaraan_screen.dart';
 import 'admin_aset_screen.dart';
 import 'admin_laporan_screen.dart';
@@ -17,17 +17,40 @@ class AdminShell extends StatefulWidget {
 
 class AdminShellState extends State<AdminShell> {
   int _currentIndex = 0;
-  int _pendingCount = 5;
+  final int _pendingCount = 5;
+  final Map<int, Widget> _screenCache = {};
+  final Set<int> _visitedIndices = {0};
+
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return const AdminDashboardScreen();
+      case 1:
+        return const AdminPeminjamanScreen();
+      case 2:
+        return const AdminKendaraanScreen();
+      case 3:
+        return AdminAsetScreen(onBack: () => setState(() => _currentIndex = 0));
+      case 4:
+        return const AdminLaporanScreen();
+      case 5:
+        return const AdminProfileScreen();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     NavigationService.goHomeAdmin = goHome;
+    NavigationService.goToTabAdmin = goToTab;
   }
 
   @override
   void dispose() {
     NavigationService.goHomeAdmin = null;
+    NavigationService.goToTabAdmin = null;
     super.dispose();
   }
 
@@ -35,17 +58,9 @@ class AdminShellState extends State<AdminShell> {
 
   void goToTab(int index) => setState(() => _currentIndex = index);
 
-  final List<Widget> _screens = const [
-    AdminDashboardScreen(),
-    AdminPersetujuanScreen(),
-    AdminKendaraanScreen(),
-    AdminAsetScreen(),
-    AdminLaporanScreen(),
-    AdminProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    _visitedIndices.add(_currentIndex);
     return PopScope(
       canPop: _currentIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
@@ -54,7 +69,16 @@ class AdminShellState extends State<AdminShell> {
         }
       },
       child: Scaffold(
-        body: IndexedStack(index: _currentIndex, children: _screens),
+        body: Stack(
+          children: List.generate(6, (i) {
+            if (!_visitedIndices.contains(i)) return const SizedBox.shrink();
+            _screenCache.putIfAbsent(i, () => _buildScreen(i));
+            return Offstage(
+              offstage: i != _currentIndex,
+              child: _screenCache[i]!,
+            );
+          }),
+        ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
             color: AppColors.surface,
@@ -81,9 +105,9 @@ class AdminShellState extends State<AdminShell> {
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
                   _AdminNavItem(
-                    icon: Icons.approval_outlined,
-                    activeIcon: Icons.approval,
-                    label: 'Persetujuan',
+                    icon: Icons.meeting_room_outlined,
+                    activeIcon: Icons.meeting_room,
+                    label: 'Peminjaman',
                     index: 1,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
@@ -102,14 +126,6 @@ class AdminShellState extends State<AdminShell> {
                     activeIcon: Icons.inventory_2,
                     label: 'Aset',
                     index: 3,
-                    current: _currentIndex,
-                    onTap: (i) => setState(() => _currentIndex = i),
-                  ),
-                  _AdminNavItem(
-                    icon: Icons.report_problem_outlined,
-                    activeIcon: Icons.report_problem,
-                    label: 'Laporan',
-                    index: 4,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),

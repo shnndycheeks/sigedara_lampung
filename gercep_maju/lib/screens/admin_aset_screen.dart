@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
+import '../services/database_service.dart';
 
 class AdminAsetScreen extends StatefulWidget {
-  const AdminAsetScreen({super.key});
+  final VoidCallback? onBack;
+  const AdminAsetScreen({super.key, this.onBack});
 
   @override
   State<AdminAsetScreen> createState() => _AdminAsetScreenState();
@@ -14,79 +16,17 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tab;
   final TextEditingController _searchCtrl = TextEditingController();
-  String _searchQuery = '';
 
-  final List<Map<String, dynamic>> _inventarisList = [
-    {
-      'nama': 'Ruang Rapat Lt. 1',
-      'kode': 'GDG-001',
-      'kategori': 'Gedung',
-      'kondisi': 'Baik',
-      'lokasi': 'Gedung Utama',
-      'tahun': '2018',
-    },
-    {
-      'nama': 'Ruang Rapat Lt. 2',
-      'kode': 'GDG-002',
-      'kategori': 'Gedung',
-      'kondisi': 'Baik',
-      'lokasi': 'Gedung Utama',
-      'tahun': '2018',
-    },
-    {
-      'nama': 'Aula Utama',
-      'kode': 'GDG-003',
-      'kategori': 'Gedung',
-      'kondisi': 'Baik',
-      'lokasi': 'Gedung Utama',
-      'tahun': '2015',
-    },
-    {
-      'nama': 'Laptop Dell XPS',
-      'kode': 'IT-0041',
-      'kategori': 'Elektronik',
-      'kondisi': 'Baik',
-      'lokasi': 'Ruang IT',
-      'tahun': '2024',
-    },
-    {
-      'nama': 'Printer HP LaserJet',
-      'kode': 'IT-0042',
-      'kategori': 'Elektronik',
-      'kondisi': 'Rusak Ringan',
-      'lokasi': 'Ruang Sekretariat',
-      'tahun': '2021',
-    },
-    {
-      'nama': 'AC Split 2 PK',
-      'kode': 'EL-0023',
-      'kategori': 'Elektronik',
-      'kondisi': 'Baik',
-      'lokasi': 'Ruang Rapat Lt. 1',
-      'tahun': '2022',
-    },
-    {
-      'nama': 'Meja Rapat 10 Orang',
-      'kode': 'FRN-011',
-      'kategori': 'Furnitur',
-      'kondisi': 'Baik',
-      'lokasi': 'Aula Utama',
-      'tahun': '2019',
-    },
-    {
-      'nama': 'Proyektor Epson',
-      'kode': 'IT-0015',
-      'kategori': 'Elektronik',
-      'kondisi': 'Baik',
-      'lokasi': 'Aula Utama',
-      'tahun': '2023',
-    },
-  ];
+  String _searchQuery = '';
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _inventarisList = [];
 
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
+    _loadAset();
   }
 
   @override
@@ -96,16 +36,158 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
     super.dispose();
   }
 
+  Future<void> _loadAset() async {
+    try {
+      final data = await DatabaseService.getAssets();
+
+      final mapped = data.map((a) {
+        return {
+          'id': a['id'],
+          'nama': a['nama'] ?? '-',
+          'kode': a['kode_asset'] ?? a['kode'] ?? '-',
+          'kategori': _formatKategori(a['kategori']),
+          'kondisi': _formatKondisi(a['kondisi']),
+          'status': (a['status'] ?? 'tersedia').toString().toLowerCase(),
+          'lokasi': a['lokasi'] ?? '-',
+          'deskripsi': a['deskripsi'] ?? '-',
+        };
+      }).toList();
+
+      if (!mounted) return;
+
+      setState(() {
+        _inventarisList = mapped;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  String _formatKategori(dynamic value) {
+    final text = (value ?? 'Elektronik').toString().trim();
+    if (text.isEmpty) return 'Elektronik';
+
+    final lower = text.toLowerCase();
+
+    if (lower == 'furniture' || lower == 'furnitur') return 'Furnitur';
+    if (lower == 'elektronik') return 'Elektronik';
+    if (lower == 'kendaraan') return 'Kendaraan';
+    if (lower == 'gedung') return 'Gedung';
+    if (lower == 'peralatan') return 'Peralatan';
+    if (lower == 'lainnya') return 'Lainnya';
+
+    return text;
+  }
+
+  String _formatKondisi(dynamic value) {
+    final text = (value ?? 'baik').toString().trim().toLowerCase();
+
+    if (text == 'sangat baik') return 'Sangat Baik';
+    if (text == 'baik') return 'Baik';
+    if (text == 'cukup') return 'Cukup';
+    if (text == 'rusak' || text == 'rusak berat') return 'Rusak';
+    if (text == 'rusak ringan') return 'Rusak Ringan';
+    if (text == 'hilang') return 'Hilang';
+
+    return 'Baik';
+  }
+
+  String _kondisiToDb(String kondisi) {
+    switch (kondisi) {
+      case 'Sangat Baik':
+        return 'sangat baik';
+      case 'Baik':
+        return 'baik';
+      case 'Cukup':
+        return 'cukup';
+      case 'Rusak Ringan':
+        return 'rusak ringan';
+      case 'Rusak':
+        return 'rusak';
+      case 'Hilang':
+        return 'hilang';
+      default:
+        return 'baik';
+    }
+  }
+
+  String _kategoriToDb(String kategori) {
+    switch (kategori) {
+      case 'Furnitur':
+        return 'Furniture';
+      default:
+        return kategori;
+    }
+  }
+
   List<Map<String, dynamic>> get _filtered {
     if (_searchQuery.isEmpty) return _inventarisList;
+
+    final q = _searchQuery.toLowerCase();
+
     return _inventarisList.where((a) {
-      return (a['nama'] as String).toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          ) ||
-          (a['kode'] as String).toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          );
+      return (a['nama'] ?? '').toString().toLowerCase().contains(q) ||
+          (a['kode'] ?? '').toString().toLowerCase().contains(q) ||
+          (a['lokasi'] ?? '').toString().toLowerCase().contains(q) ||
+          (a['kategori'] ?? '').toString().toLowerCase().contains(q);
     }).toList();
+  }
+
+  int get _totalAset => _inventarisList.length;
+
+  int get _asetBaik {
+    return _inventarisList.where((a) {
+      final kondisi = a['kondisi'].toString();
+      return kondisi == 'Baik' || kondisi == 'Sangat Baik';
+    }).length;
+  }
+
+  int get _asetBermasalah {
+    return _inventarisList.where((a) {
+      final kondisi = a['kondisi'].toString();
+      return kondisi == 'Cukup' ||
+          kondisi == 'Rusak Ringan' ||
+          kondisi == 'Rusak' ||
+          kondisi == 'Hilang';
+    }).length;
+  }
+
+  int get _asetTersedia {
+    return _inventarisList.where((a) => a['status'] == 'tersedia').length;
+  }
+
+  void _showSuccessSnack(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorSnack(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -123,7 +205,7 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
             size: 20,
           ),
           onPressed: () {
-            NavigationService.goHomeAdmin?.call();
+            widget.onBack?.call();
           },
         ),
         bottom: TabBar(
@@ -169,160 +251,264 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
     );
   }
 
-  // ── Inventaris Tab ──────────────────────────────────────────────────────────
   Widget _buildInventarisTab() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadAset,
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: const [
+            SizedBox(height: 120),
+            EmptyState(
+              icon: Icons.error_outline,
+              title: 'Gagal memuat aset',
+              subtitle: 'Cek koneksi atau policy Supabase',
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
-          child: TextField(
-            controller: _searchCtrl,
-            onChanged: (v) => setState(() => _searchQuery = v),
-            style: AppTextStyles.body,
-            decoration: InputDecoration(
-              hintText: 'Cari nama aset atau kode...',
-              filled: true,
-              fillColor: AppColors.surface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.divider),
-              ),
-              prefixIcon: const Icon(
-                Icons.search,
-                color: AppColors.textSecondary,
-                size: 20,
-              ),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(
-                        Icons.clear,
-                        size: 18,
-                        color: AppColors.textSecondary,
-                      ),
-                      onPressed: () => setState(() {
-                        _searchCtrl.clear();
-                        _searchQuery = '';
-                      }),
-                    )
-                  : null,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: _filtered.isEmpty
-              ? const EmptyState(
-                  icon: Icons.inventory_2_outlined,
-                  title: 'Aset tidak ditemukan',
-                  subtitle: 'Coba gunakan kata kunci lain',
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                  itemCount: _filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _AdminAsetTile(
-                    data: _filtered[i],
-                    onEdit: () => _showAddEditDialog(context, _filtered[i]),
-                    onDelete: () => _showDeleteDialog(context, _filtered[i]),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  // ── Ringkasan Tab ───────────────────────────────────────────────────────────
-  Widget _buildRingkasanTab() {
-    final Map<String, int> byKategori = {};
-    final Map<String, int> byKondisi = {};
-    for (final a in _inventarisList) {
-      final k = a['kategori'] as String;
-      final c = a['kondisi'] as String;
-      byKategori[k] = (byKategori[k] ?? 0) + 1;
-      byKondisi[c] = (byKondisi[c] ?? 0) + 1;
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        NeuCard(
-          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Expanded(
-                child: _SummaryCell(
-                  value: '${_inventarisList.length}',
-                  label: 'Total Aset',
-                  color: AppColors.primary,
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _searchQuery = v),
+                  style: AppTextStyles.body,
+                  decoration: InputDecoration(
+                    hintText: 'Cari nama aset, kode, lokasi...',
+                    filled: true,
+                    fillColor: AppColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.divider),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.clear,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                            onPressed: () => setState(() {
+                              _searchCtrl.clear();
+                              _searchQuery = '';
+                            }),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
                 ),
               ),
-              Expanded(
-                child: _SummaryCell(
-                  value: '${byKondisi['Baik'] ?? 0}',
-                  label: 'Kondisi Baik',
-                  color: AppColors.success,
-                ),
-              ),
-              Expanded(
-                child: _SummaryCell(
-                  value: '${byKondisi['Rusak Ringan'] ?? 0}',
-                  label: 'Rusak Ringan',
-                  color: AppColors.warning,
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Laporan Kerusakan',
+                child: InkWell(
+                  onTap: () => NavigationService.goToTabAdmin?.call(4),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    width: 44,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.error.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.report_problem_rounded,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        const Text('Distribusi Kategori', style: AppTextStyles.h3),
-        const SizedBox(height: 12),
-        ...byKategori.entries.map(
-          (e) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _CategoryBar(
-              kategori: e.key,
-              count: e.value,
-              total: _inventarisList.length,
-            ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _loadAset,
+            child: _filtered.isEmpty
+                ? ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: const [
+                      SizedBox(height: 120),
+                      EmptyState(
+                        icon: Icons.inventory_2_outlined,
+                        title: 'Aset tidak ditemukan',
+                        subtitle: 'Coba gunakan kata kunci lain',
+                      ),
+                    ],
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    itemCount: _filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _AdminAsetTile(
+                      data: _filtered[i],
+                      onEdit: () => _showAddEditDialog(context, _filtered[i]),
+                      onDelete: () => _showDeleteDialog(context, _filtered[i]),
+                    ),
+                  ),
           ),
         ),
-        const SizedBox(height: 20),
-        const Text('Distribusi Kondisi', style: AppTextStyles.h3),
-        const SizedBox(height: 12),
-        ...byKondisi.entries.map((e) {
-          Color c;
-          switch (e.key) {
-            case 'Baik':
-              c = AppColors.success;
-              break;
-            case 'Rusak Ringan':
-              c = AppColors.warning;
-              break;
-            default:
-              c = AppColors.error;
-          }
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _CategoryBar(
-              kategori: e.key,
-              count: e.value,
-              total: _inventarisList.length,
-              color: c,
-            ),
-          );
-        }),
       ],
     );
   }
 
-  // ── Laporan Tab ─────────────────────────────────────────────────────────────
+  Widget _buildRingkasanTab() {
+    final Map<String, int> byKategori = {};
+    final Map<String, int> byKondisi = {};
+
+    for (final a in _inventarisList) {
+      final k = a['kategori'].toString();
+      final c = a['kondisi'].toString();
+      byKategori[k] = (byKategori[k] ?? 0) + 1;
+      byKondisi[c] = (byKondisi[c] ?? 0) + 1;
+    }
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAset,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          NeuCard(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SummaryCell(
+                    value: '$_totalAset',
+                    label: 'Total Aset',
+                    color: AppColors.primary,
+                  ),
+                ),
+                Expanded(
+                  child: _SummaryCell(
+                    value: '$_asetBaik',
+                    label: 'Kondisi Baik',
+                    color: AppColors.success,
+                  ),
+                ),
+                Expanded(
+                  child: _SummaryCell(
+                    value: '$_asetBermasalah',
+                    label: 'Bermasalah',
+                    color: AppColors.warning,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          NeuCard(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _SummaryCell(
+                    value: '$_asetTersedia',
+                    label: 'Tersedia',
+                    color: AppColors.success,
+                  ),
+                ),
+                Expanded(
+                  child: _SummaryCell(
+                    value: '${_totalAset - _asetTersedia}',
+                    label: 'Tidak Tersedia',
+                    color: AppColors.error,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text('Distribusi Kategori', style: AppTextStyles.h3),
+          const SizedBox(height: 12),
+          if (byKategori.isEmpty)
+            const EmptyState(
+              icon: Icons.category_outlined,
+              title: 'Belum ada kategori',
+              subtitle: 'Data kategori aset akan muncul di sini',
+            )
+          else
+            ...byKategori.entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _CategoryBar(
+                  kategori: e.key,
+                  count: e.value,
+                  total: _inventarisList.length,
+                ),
+              ),
+            ),
+          const SizedBox(height: 20),
+          const Text('Distribusi Kondisi', style: AppTextStyles.h3),
+          const SizedBox(height: 12),
+          if (byKondisi.isEmpty)
+            const EmptyState(
+              icon: Icons.health_and_safety_outlined,
+              title: 'Belum ada kondisi',
+              subtitle: 'Data kondisi aset akan muncul di sini',
+            )
+          else
+            ...byKondisi.entries.map((e) {
+              Color c;
+              switch (e.key) {
+                case 'Sangat Baik':
+                case 'Baik':
+                  c = AppColors.success;
+                  break;
+                case 'Cukup':
+                case 'Rusak Ringan':
+                  c = AppColors.warning;
+                  break;
+                default:
+                  c = AppColors.error;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _CategoryBar(
+                  kategori: e.key,
+                  count: e.value,
+                  total: _inventarisList.length,
+                  color: c,
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLaporanTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -332,7 +518,9 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
           label: 'Laporan Inventaris Lengkap',
           subtitle: 'Semua data aset dalam format PDF',
           color: AppColors.error,
-          onTap: () {},
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fitur ekspor dalam pengembangan')),
+          ),
         ),
         const SizedBox(height: 10),
         _LaporanTile(
@@ -340,7 +528,9 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
           label: 'Ekspor Data ke Excel',
           subtitle: 'Download spreadsheet inventaris',
           color: AppColors.success,
-          onTap: () {},
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fitur ekspor dalam pengembangan')),
+          ),
         ),
         const SizedBox(height: 10),
         _LaporanTile(
@@ -348,7 +538,9 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
           label: 'Rekap Peminjaman Aset',
           subtitle: 'Statistik penggunaan aset per bulan',
           color: AppColors.info,
-          onTap: () {},
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fitur ekspor dalam pengembangan')),
+          ),
         ),
         const SizedBox(height: 10),
         _LaporanTile(
@@ -356,197 +548,325 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
           label: 'Laporan Aset Bermasalah',
           subtitle: 'Aset dengan kondisi rusak atau hilang',
           color: AppColors.warning,
-          onTap: () {},
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fitur ekspor dalam pengembangan')),
+          ),
         ),
       ],
     );
   }
 
-  void _showAddEditDialog(
+  Future<void> _showAddEditDialog(
     BuildContext context,
     Map<String, dynamic>? existing,
-  ) {
+  ) async {
     final namaCtrl = TextEditingController(
-      text: existing?['nama'] as String? ?? '',
+      text: existing?['nama']?.toString() ?? '',
     );
     final kodeCtrl = TextEditingController(
-      text: existing?['kode'] as String? ?? '',
+      text: existing?['kode']?.toString() ?? '',
     );
     final lokasiCtrl = TextEditingController(
-      text: existing?['lokasi'] as String? ?? '',
+      text: existing?['lokasi']?.toString() ?? '',
     );
-    final tahunCtrl = TextEditingController(
-      text: existing?['tahun'] as String? ?? '',
-    );
-    String selectedKategori = existing?['kategori'] as String? ?? 'Gedung';
-    String selectedKondisi = existing?['kondisi'] as String? ?? 'Baik';
 
-    showDialog(
+    String selectedKategori = existing?['kategori']?.toString() ?? 'Elektronik';
+    String selectedKondisi = existing?['kondisi']?.toString() ?? 'Baik';
+
+    final kategoriList = [
+      'Elektronik',
+      'Furnitur',
+      'Kendaraan',
+      'Gedung',
+      'Peralatan',
+      'Lainnya',
+    ];
+
+    final kondisiList = [
+      'Sangat Baik',
+      'Baik',
+      'Cukup',
+      'Rusak Ringan',
+      'Rusak',
+      'Hilang',
+    ];
+
+    if (!kategoriList.contains(selectedKategori)) {
+      selectedKategori = 'Elektronik';
+    }
+
+    if (!kondisiList.contains(selectedKondisi)) {
+      selectedKondisi = 'Baik';
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setStateD) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            existing == null ? 'Tambah Aset' : 'Edit Aset',
-            style: AppTextStyles.h3,
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DialogField(label: 'Nama Aset', controller: namaCtrl),
-                const SizedBox(height: 12),
-                _DialogField(label: 'Kode Aset', controller: kodeCtrl),
-                const SizedBox(height: 12),
-                _DialogField(label: 'Lokasi', controller: lokasiCtrl),
-                const SizedBox(height: 12),
-                _DialogField(label: 'Tahun Pengadaan', controller: tahunCtrl),
-                const SizedBox(height: 12),
-                const Text('Kategori', style: AppTextStyles.label),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: selectedKategori,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: AppColors.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                  items:
-                      [
-                            'Gedung',
-                            'Elektronik',
-                            'Furnitur',
-                            'Kendaraan',
-                            'Lainnya',
-                          ]
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setStateD) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                existing == null ? 'Tambah Aset' : 'Edit Aset',
+                style: AppTextStyles.h3,
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DialogField(label: 'Nama Aset', controller: namaCtrl),
+                    const SizedBox(height: 12),
+                    _DialogField(label: 'Kode Aset', controller: kodeCtrl),
+                    const SizedBox(height: 12),
+                    _DialogField(label: 'Lokasi', controller: lokasiCtrl),
+                    const SizedBox(height: 12),
+                    const Text('Kategori', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedKategori,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: AppColors.surfaceVariant,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      items: kategoriList
                           .map(
-                            (k) => DropdownMenuItem(value: k, child: Text(k)),
+                            (k) => DropdownMenuItem(
+                              value: k,
+                              child: Text(k),
+                            ),
                           )
                           .toList(),
-                  onChanged: (v) =>
-                      setStateD(() => selectedKategori = v ?? selectedKategori),
-                ),
-                const SizedBox(height: 12),
-                const Text('Kondisi', style: AppTextStyles.label),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: selectedKondisi,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: AppColors.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
+                      onChanged: (v) {
+                        setStateD(() {
+                          selectedKategori = v ?? selectedKategori;
+                        });
+                      },
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                    const SizedBox(height: 12),
+                    const Text('Kondisi', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedKondisi,
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: AppColors.surfaceVariant,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      items: kondisiList
+                          .map(
+                            (k) => DropdownMenuItem(
+                              value: k,
+                              child: Text(k),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        setStateD(() {
+                          selectedKondisi = v ?? selectedKondisi;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop(null);
+                  },
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final nama = namaCtrl.text.trim();
+                    final kode = kodeCtrl.text.trim();
+                    final lokasi = lokasiCtrl.text.trim();
+
+                    if (nama.isEmpty || kode.isEmpty || lokasi.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Nama, kode, dan lokasi aset wajib diisi',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop({
+                      'nama': nama,
+                      'kode': kode,
+                      'lokasi': lokasi,
+                      'kategori': selectedKategori,
+                      'kondisi': selectedKondisi,
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryDark,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  items: ['Baik', 'Rusak Ringan', 'Rusak Berat', 'Hilang']
-                      .map((k) => DropdownMenuItem(value: k, child: Text(k)))
-                      .toList(),
-                  onChanged: (v) =>
-                      setStateD(() => selectedKondisi = v ?? selectedKondisi),
+                  icon: Icon(
+                    existing == null ? Icons.add : Icons.save_outlined,
+                  ),
+                  label: Text(existing == null ? 'Tambah' : 'Simpan'),
                 ),
               ],
-            ),
+            );
+          },
+        );
+      },
+    );
+
+    namaCtrl.dispose();
+    kodeCtrl.dispose();
+    lokasiCtrl.dispose();
+
+    if (result == null) return;
+
+    try {
+      if (mounted) {
+        setState(() {
+          _loading = true;
+        });
+      }
+
+      if (existing == null) {
+        await DatabaseService.tambahAset(
+          nama: result['nama'].toString(),
+          kodeAsset: result['kode'].toString(),
+          lokasi: result['lokasi'].toString(),
+          kategori: _kategoriToDb(result['kategori'].toString()),
+          kondisi: _kondisiToDb(result['kondisi'].toString()),
+        );
+      } else {
+        await DatabaseService.updateAset(
+          id: existing['id'].toString(),
+          nama: result['nama'].toString(),
+          kodeAsset: result['kode'].toString(),
+          lokasi: result['lokasi'].toString(),
+          kategori: _kategoriToDb(result['kategori'].toString()),
+          kondisi: _kondisiToDb(result['kondisi'].toString()),
+          status: existing['status']?.toString() ?? 'tersedia',
+        );
+      }
+
+      await _loadAset();
+
+      if (!mounted) return;
+
+      _showSuccessSnack(
+        existing == null
+            ? 'Aset berhasil ditambahkan'
+            : 'Aset berhasil diperbarui',
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      _showErrorSnack('Gagal menyimpan aset: $e');
+    }
+  }
+
+  Future<void> _showDeleteDialog(
+    BuildContext context,
+    Map<String, dynamic> item,
+  ) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Hapus Aset', style: AppTextStyles.h3),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus "${item['nama']}"?\n\nData akan dihapus dari Supabase.',
+            style: AppTextStyles.body,
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
               child: const Text(
                 'Batal',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
-            ElevatedButton(
+            ElevatedButton.icon(
               onPressed: () {
-                setState(() {
-                  if (existing == null) {
-                    _inventarisList.add({
-                      'nama': namaCtrl.text,
-                      'kode': kodeCtrl.text,
-                      'kategori': selectedKategori,
-                      'kondisi': selectedKondisi,
-                      'lokasi': lokasiCtrl.text,
-                      'tahun': tahunCtrl.text,
-                    });
-                  } else {
-                    existing['nama'] = namaCtrl.text;
-                    existing['kode'] = kodeCtrl.text;
-                    existing['kategori'] = selectedKategori;
-                    existing['kondisi'] = selectedKondisi;
-                    existing['lokasi'] = lokasiCtrl.text;
-                    existing['tahun'] = tahunCtrl.text;
-                  }
-                });
-                Navigator.pop(context);
+                Navigator.of(dialogContext).pop(true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryDark,
+                backgroundColor: AppColors.error,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Text(existing == null ? 'Tambah' : 'Simpan'),
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Hapus'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
-  }
 
-  void _showDeleteDialog(BuildContext context, Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Hapus Aset', style: AppTextStyles.h3),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus "${item['nama']}"?',
-          style: AppTextStyles.body,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Batal',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => _inventarisList.remove(item));
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text('Hapus'),
-          ),
-        ],
-      ),
-    );
+    if (result != true) return;
+
+    try {
+      if (mounted) {
+        setState(() {
+          _loading = true;
+        });
+      }
+
+      await DatabaseService.hapusAset(item['id'].toString());
+
+      await _loadAset();
+
+      if (!mounted) return;
+
+      _showSuccessSnack('Aset berhasil dihapus');
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+      });
+
+      _showErrorSnack('Gagal menghapus aset: $e');
+    }
   }
 }
 
-// ── Admin Aset Tile ───────────────────────────────────────────────────────────
 class _AdminAsetTile extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onEdit;
@@ -560,8 +880,10 @@ class _AdminAsetTile extends StatelessWidget {
 
   Color _kondisiColor(String c) {
     switch (c) {
+      case 'Sangat Baik':
       case 'Baik':
         return AppColors.success;
+      case 'Cukup':
       case 'Rusak Ringan':
         return AppColors.warning;
       default:
@@ -579,6 +901,8 @@ class _AdminAsetTile extends StatelessWidget {
         return Icons.chair;
       case 'Kendaraan':
         return Icons.directions_car;
+      case 'Peralatan':
+        return Icons.handyman_outlined;
       default:
         return Icons.inventory_2;
     }
@@ -586,8 +910,9 @@ class _AdminAsetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final kondisi = data['kondisi'] as String;
-    final kategori = data['kategori'] as String;
+    final kondisi = data['kondisi'].toString();
+    final kategori = data['kategori'].toString();
+
     return NeuCard(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -610,7 +935,7 @@ class _AdminAsetTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(data['nama'] as String, style: AppTextStyles.h4),
+                Text(data['nama'].toString(), style: AppTextStyles.h4),
                 const SizedBox(height: 2),
                 Text(
                   '${data['kode']} • ${data['lokasi']}',
@@ -621,9 +946,12 @@ class _AdminAsetTile extends StatelessWidget {
                   children: [
                     StatusBadge(label: kondisi, color: _kondisiColor(kondisi)),
                     const SizedBox(width: 6),
-                    Text(
-                      data['kategori'] as String,
-                      style: AppTextStyles.caption,
+                    Flexible(
+                      child: Text(
+                        kategori,
+                        style: AppTextStyles.caption,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -660,7 +988,6 @@ class _AdminAsetTile extends StatelessWidget {
   }
 }
 
-// ── Summary Cell ──────────────────────────────────────────────────────────────
 class _SummaryCell extends StatelessWidget {
   final String value;
   final String label;
@@ -690,7 +1017,6 @@ class _SummaryCell extends StatelessWidget {
   }
 }
 
-// ── Category Bar ──────────────────────────────────────────────────────────────
 class _CategoryBar extends StatelessWidget {
   final String kategori;
   final int count;
@@ -706,6 +1032,7 @@ class _CategoryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pct = total > 0 ? count / total : 0.0;
+
     return NeuCard(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -716,7 +1043,7 @@ class _CategoryBar extends StatelessWidget {
             children: [
               Text(kategori, style: AppTextStyles.h4),
               Text(
-                '$count item${count > 1 ? 's' : ''}',
+                '$count item',
                 style: AppTextStyles.bodySmall,
               ),
             ],
@@ -737,13 +1064,13 @@ class _CategoryBar extends StatelessWidget {
   }
 }
 
-// ── Laporan Tile ──────────────────────────────────────────────────────────────
 class _LaporanTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+
   const _LaporanTile({
     required this.icon,
     required this.label,
@@ -785,11 +1112,14 @@ class _LaporanTile extends StatelessWidget {
   }
 }
 
-// ── Dialog Field ──────────────────────────────────────────────────────────────
 class _DialogField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
-  const _DialogField({required this.label, required this.controller});
+
+  const _DialogField({
+    required this.label,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -81,6 +81,10 @@ class GradientButton extends StatelessWidget {
   final IconData? icon;
   final bool isLoading;
   final bool outlined;
+  final List<Color>? gradientColors;
+  final Color? outlinedBorderColor;
+  final Color? outlinedTextColor;
+  final Color? shadowColor;
   const GradientButton({
     super.key,
     required this.label,
@@ -88,40 +92,49 @@ class GradientButton extends StatelessWidget {
     this.icon,
     this.isLoading = false,
     this.outlined = false,
+    this.gradientColors,
+    this.outlinedBorderColor,
+    this.outlinedTextColor,
+    this.shadowColor,
   });
 
   @override
   Widget build(BuildContext context) {
     if (outlined) {
+      final Color borderColor = outlinedBorderColor ?? AppColors.primary;
+      final Color textColor = outlinedTextColor ?? AppColors.primary;
       return SizedBox(
         height: 52,
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.primary, width: 2),
+            side: BorderSide(color: borderColor, width: 2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
           child: Text(
             label,
-            style: AppTextStyles.button.copyWith(color: AppColors.primary),
+            style: AppTextStyles.button.copyWith(color: textColor),
           ),
         ),
       );
     }
+    final List<Color> colors =
+        gradientColors ?? [AppColors.primaryLight, AppColors.primary];
+    final Color resolvedShadowColor = shadowColor ?? AppColors.primary;
     return Container(
       height: 52,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.primaryLight, AppColors.primary],
+        gradient: LinearGradient(
+          colors: colors,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.35),
+            color: resolvedShadowColor.withValues(alpha: 0.35),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -255,6 +268,7 @@ class AppTextField extends StatelessWidget {
   final String hint;
   final String? label;
   final IconData? prefixIcon;
+  final Color? prefixIconColor;
   final Widget? suffix;
   final bool obscure;
   final TextEditingController? controller;
@@ -264,6 +278,7 @@ class AppTextField extends StatelessWidget {
     required this.hint,
     this.label,
     this.prefixIcon,
+    this.prefixIconColor,
     this.suffix,
     this.obscure = false,
     this.controller,
@@ -281,7 +296,11 @@ class AppTextField extends StatelessWidget {
         hintText: hint,
         labelText: label,
         prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, color: AppColors.textSecondary, size: 20)
+            ? Icon(
+                prefixIcon,
+                color: prefixIconColor ?? AppColors.textSecondary,
+                size: 20,
+              )
             : null,
         suffix: suffix,
       ),

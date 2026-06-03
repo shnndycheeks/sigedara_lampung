@@ -1,337 +1,531 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common_widgets.dart';
-import 'main_shell.dart';
 import 'admin_shell.dart';
+import 'main_shell.dart';
+import 'register_screen.dart';
+import '../services/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool isAdmin;
+
+  const LoginScreen({super.key, this.isAdmin = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  final _usernameCtrl = TextEditingController();
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+
   bool _obscure = true;
   bool _loading = false;
   bool _rememberMe = false;
-  late AnimationController _ctrl;
-  late Animation<double> _fadeAnim;
-  late Animation<Offset> _slideAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _fadeAnim = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.08),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    _ctrl.forward();
-  }
 
   @override
   void dispose() {
-    _ctrl.dispose();
-    _usernameCtrl.dispose();
+    _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
   }
 
-  void _login() async {
+  Color get _primaryColor =>
+      widget.isAdmin ? const Color(0xFFD4AF37) : const Color(0xFF0B63CE);
+
+  Color get _primaryDark =>
+      widget.isAdmin ? const Color(0xFF8B6A00) : const Color(0xFF064AA8);
+
+  List<Color> get _gradient {
+    if (widget.isAdmin) {
+      return const [Color(0xFF6B5200), Color(0xFFD4AF37)];
+    }
+
+    return const [Color(0xFF063F98), Color(0xFF0E6AD8)];
+  }
+
+  void _showMessage(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.error : Colors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Lupa Password',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Silakan hubungi administrator untuk reset password.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _login() async {
+    FocusScope.of(context).unfocus();
+
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Email dan password wajib diisi', isError: true);
+      return;
+    }
+
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) {
-      setState(() => _loading = false);
-      final username = _usernameCtrl.text.trim().toLowerCase();
-      final isAdmin = username == 'admin';
-      Navigator.of(context).pushReplacement(
+
+    try {
+      await AuthService.login(email: email, password: password);
+
+      final expectedRole = widget.isAdmin ? UserRole.admin : UserRole.user;
+
+      final currentRole = AuthService.currentRole.value;
+
+      if (currentRole != expectedRole) {
+        await AuthService.logout();
+
+        throw Exception(
+          widget.isAdmin
+              ? 'Akun ini bukan Administrator'
+              : 'Akun ini bukan Pegawai',
+        );
+      }
+
+      if (!mounted) return;
+
+      _showMessage('Login berhasil');
+      await AppNotificationService.showNotification(
+        title: 'Login Berhasil',
+        body: 'Selamat datang di SIGEDARA',
+      );
+
+      Navigator.pushReplacement(
+        context,
         MaterialPageRoute(
-          builder: (_) => isAdmin ? const AdminShell() : const MainShell(),
+          builder: (_) =>
+              widget.isAdmin ? const AdminShell() : const MainShell(),
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = 'Terjadi kesalahan';
+
+      final error = e.toString().toLowerCase();
+
+      if (error.contains('invalid login credentials')) {
+        errorMessage = 'Email atau password salah';
+      } else if (error.contains('administrator')) {
+        errorMessage = 'Akun ini bukan Administrator';
+      } else if (error.contains('pegawai')) {
+        errorMessage = 'Akun ini bukan Pegawai';
+      } else if (error.contains('network')) {
+        errorMessage = 'Koneksi internet bermasalah';
+      }
+
+      _showMessage(errorMessage, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Top gradient header
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 280,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primaryDark, AppColors.primary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(40),
-                  bottomRight: Radius.circular(40),
-                ),
-              ),
-              child: SafeArea(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Image.asset(
-                        'assets/images/logo_biro_umum.png',
-                        height: 72,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'GerCep Maju',
-                      style: TextStyle(
-                        fontFamily: 'Poppins',
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sistem Pengelolaan Aset & Peminjaman',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF2F6FC),
 
-          // Form card
-          Positioned.fill(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 230),
-                child: FadeTransition(
-                  opacity: _fadeAnim,
-                  child: SlideTransition(
-                    position: _slideAnim,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-                      child: NeuCard(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                // ================= HEADER =================
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: _gradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(40),
+                      bottomRight: Radius.circular(40),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 24,
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            Text('Masuk', style: AppTextStyles.h2),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Silakan masuk dengan akun Anda',
-                              style: AppTextStyles.bodySmall,
-                            ),
-                            const SizedBox(height: 28),
-
-                            // Username
-                            const Text(
-                              'Username / NIP',
-                              style: AppTextStyles.label,
-                            ),
-                            const SizedBox(height: 6),
-                            AppTextField(
-                              hint: 'Masukkan username atau NIP',
-                              prefixIcon: Icons.person_outline,
-                              controller: _usernameCtrl,
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Password
-                            const Text('Password', style: AppTextStyles.label),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _passwordCtrl,
-                              obscureText: _obscure,
-                              style: AppTextStyles.body,
-                              decoration: InputDecoration(
-                                hintText: 'Masukkan password',
-                                filled: true,
-                                fillColor: AppColors.surfaceVariant,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.divider,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(
-                                    color: AppColors.primary,
-                                    width: 2,
-                                  ),
-                                ),
-                                prefixIcon: const Icon(
-                                  Icons.lock_outline,
-                                  color: AppColors.textSecondary,
-                                  size: 20,
-                                ),
-                                suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscure
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    color: AppColors.textSecondary,
-                                    size: 20,
-                                  ),
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Remember + Forgot
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: Checkbox(
-                                        value: _rememberMe,
-                                        onChanged: (v) => setState(
-                                          () => _rememberMe = v ?? false,
-                                        ),
-                                        activeColor: AppColors.primary,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    const Text(
-                                      'Ingat saya',
-                                      style: AppTextStyles.label,
-                                    ),
-                                  ],
-                                ),
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: Text(
-                                    'Lupa password?',
-                                    style: AppTextStyles.label.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-
-                            // Login button
-                            SizedBox(
-                              width: double.infinity,
-                              child: GradientButton(
-                                label: 'Masuk',
-                                onPressed: _login,
-                                isLoading: _loading,
-                                icon: Icons.login,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Divider
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Divider(color: AppColors.divider),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                  ),
-                                  child: Text(
-                                    'atau',
-                                    style: AppTextStyles.caption,
-                                  ),
-                                ),
-                                const Expanded(
-                                  child: Divider(color: AppColors.divider),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Biometric button
-                            SizedBox(
-                              width: double.infinity,
-                              child: GradientButton(
-                                label: 'Masuk dengan Biometrik',
-                                onPressed: () {},
-                                icon: Icons.fingerprint,
-                                outlined: true,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Footer
-                            Center(
-                              child: Text(
-                                'Sistem Internal — Biro Umum Setda Prov. Lampung\nHanya untuk pegawai resmi',
-                                style: AppTextStyles.caption.copyWith(
-                                  height: 1.6,
-                                ),
-                                textAlign: TextAlign.center,
+                            IconButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              icon: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: Colors.white,
                               ),
                             ),
                           ],
                         ),
-                      ),
+
+                        const SizedBox(height: 10),
+
+                        Container(
+                          width: 290,
+                          height: 90,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.10),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Image.asset(
+                            'assets/images/logo_biro_umum.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        const Text(
+                          'Sigedara Lampung',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        Text(
+                          widget.isAdmin
+                              ? 'Portal Administrator Sistem'
+                              : 'Sistem Pengelolaan Aset & Peminjaman',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        const SizedBox(height: 30),
+                      ],
                     ),
                   ),
                 ),
-              ),
+
+                // ================= FORM =================
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 24,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Masuk',
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0B224A),
+                          ),
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        Text(
+                          widget.isAdmin
+                              ? 'Masuk sebagai Administrator'
+                              : 'Masuk sebagai Pegawai',
+                          style: const TextStyle(
+                            color: Color(0xFF5B6B84),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        const Text(
+                          'Email',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF5B6B84),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan email',
+                            prefixIcon: Icon(
+                              Icons.email_outlined,
+                              color: _primaryColor,
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5FB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        const Text(
+                          'Password',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF5B6B84),
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        TextField(
+                          controller: _passwordCtrl,
+                          obscureText: _obscure,
+                          decoration: InputDecoration(
+                            hintText: 'Masukkan password',
+                            prefixIcon: Icon(
+                              Icons.lock_outline,
+                              color: _primaryColor,
+                            ),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscure = !_obscure;
+                                });
+                              },
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5FB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(18),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        Row(
+                          children: [
+                            Checkbox(
+                              value: _rememberMe,
+                              activeColor: _primaryDark,
+                              onChanged: (value) {
+                                setState(() {
+                                  _rememberMe = value ?? false;
+                                });
+                              },
+                            ),
+
+                            const Text(
+                              'Ingat saya',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+
+                            const Spacer(),
+
+                            GestureDetector(
+                              onTap: _showForgotPasswordDialog,
+                              child: Text(
+                                'Lupa password?',
+                                style: TextStyle(
+                                  color: _primaryDark,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: _loading ? null : _login,
+                            icon: _loading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.login_rounded),
+                            label: Text(
+                              _loading ? 'Memproses...' : 'Masuk',
+                              style: const TextStyle(
+                                fontFamily: 'Poppins',
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryDark,
+                              foregroundColor: Colors.white,
+                              elevation: 6,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        Row(
+                          children: const [
+                            Expanded(child: Divider()),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text('atau'),
+                            ),
+                            Expanded(child: Divider()),
+                          ],
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              _showMessage('Fitur biometrik segera hadir');
+                            },
+                            icon: Icon(Icons.fingerprint, color: _primaryDark),
+                            label: Text(
+                              'Masuk dengan Biometrik',
+                              style: TextStyle(
+                                color: _primaryDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: _primaryDark, width: 2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        if (!widget.isAdmin) ...[
+                          const SizedBox(height: 30),
+
+                          Center(
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RegisterScreen(),
+                                  ),
+                                );
+                              },
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    color: Color(0xFF5B6B84),
+                                  ),
+                                  children: [
+                                    const TextSpan(text: 'Belum punya akun? '),
+                                    TextSpan(
+                                      text: 'Daftar sekarang',
+                                      style: TextStyle(
+                                        color: _primaryDark,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        const Center(
+                          child: Text(
+                            'Sistem Internal — Biro Umum Setda Provinsi Lampung',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF9AA7BA),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

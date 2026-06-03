@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 
 class LaporanKerusakanScreen extends StatefulWidget {
@@ -15,6 +15,12 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   late TabController _tab;
   int _filterIndex = 0;
 
+  final SupabaseClient _client = Supabase.instance.client;
+
+  bool _loading = true;
+  bool _submitting = false;
+  String? _error;
+
   final List<String> _filters = ['Semua', 'Proses', 'Selesai', 'Ditolak'];
 
   // Form controllers
@@ -25,6 +31,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   final _kodeAsetCtrl = TextEditingController();
   final _lokasiCtrl = TextEditingController();
   final _deskripsiCtrl = TextEditingController();
+
   DateTime? _tanggalKejadian;
   String _jenisAset = 'Gedung';
   String _tingkatKerusakan = 'Ringan';
@@ -39,86 +46,150 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
 
   final List<String> _tingkatOptions = ['Ringan', 'Sedang', 'Berat'];
 
-  final List<Map<String, dynamic>> _laporanList = [
-    {
-      'id': 'LK-2025-001',
-      'namaAset': 'AC Ruang Rapat Lt. 1',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-E-012',
-      'pelapor': 'Budi Santoso',
-      'unit': 'Bagian Umum',
-      'tingkat': 'Sedang',
-      'lokasi': 'Gedung Utama Lt. 1',
-      'deskripsi':
-          'AC tidak dapat mendinginkan ruangan, suara berisik saat menyala.',
-      'tanggal': '10 Jun 2025',
-      'status': 'Proses',
-    },
-    {
-      'id': 'LK-2025-002',
-      'namaAset': 'Pintu Aula Utama',
-      'jenisAset': 'Gedung',
-      'kode': 'GDG-003',
-      'pelapor': 'Sari Dewi',
-      'unit': 'Bagian Protokol',
-      'tingkat': 'Ringan',
-      'lokasi': 'Aula Utama',
-      'deskripsi': 'Engsel pintu rusak, pintu tidak dapat menutup sempurna.',
-      'tanggal': '08 Jun 2025',
-      'status': 'Selesai',
-    },
-    {
-      'id': 'LK-2025-003',
-      'namaAset': 'Laptop Dell XPS',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-0041',
-      'pelapor': 'Rendi Pratama',
-      'unit': 'Bagian IT',
-      'tingkat': 'Berat',
-      'lokasi': 'Ruang IT',
-      'deskripsi': 'Layar laptop retak akibat terjatuh, tidak dapat digunakan.',
-      'tanggal': '05 Jun 2025',
-      'status': 'Proses',
-    },
-    {
-      'id': 'LK-2025-004',
-      'namaAset': 'Kursi Roda Kantor',
-      'jenisAset': 'Furnitur',
-      'kode': 'FUR-022',
-      'pelapor': 'Andi Wijaya',
-      'unit': 'Bagian Keuangan',
-      'tingkat': 'Ringan',
-      'lokasi': 'Ruang Keuangan',
-      'deskripsi': 'Roda kursi patah, tidak dapat diputar.',
-      'tanggal': '01 Jun 2025',
-      'status': 'Selesai',
-    },
-    {
-      'id': 'LK-2025-005',
-      'namaAset': 'Genset Cadangan',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-GS-001',
-      'pelapor': 'Hendra Putra',
-      'unit': 'Bagian Teknik',
-      'tingkat': 'Berat',
-      'lokasi': 'Ruang Genset',
-      'deskripsi':
-          'Genset tidak dapat dinyalakan, kemungkinan masalah pada starter.',
-      'tanggal': '28 Mei 2025',
-      'status': 'Ditolak',
-    },
-  ];
+  List<Map<String, dynamic>> _laporanList = [];
 
   List<Map<String, dynamic>> get _filteredList {
     if (_filterIndex == 0) return _laporanList;
-    final status = _filters[_filterIndex];
-    return _laporanList.where((e) => e['status'] == status).toList();
+
+    final status = _filters[_filterIndex].toLowerCase();
+
+    return _laporanList.where((e) {
+      final itemStatus = _safeText(e['status']).toLowerCase();
+      return itemStatus == status;
+    }).toList();
   }
 
   @override
   void initState() {
     super.initState();
+
     _tab = TabController(length: 2, vsync: this);
+
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await _loadProfileForForm();
+    await _loadLaporan();
+  }
+
+  Future<void> _loadProfileForForm() async {
+    try {
+      final user = _client.auth.currentUser;
+
+      if (user == null) return;
+
+      final profile = await _client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      final nama = _safeText(
+        profile?['nama'],
+        fallback: user.userMetadata?['nama']?.toString() ?? '',
+      );
+
+      final unit = _safeText(
+        profile?['unit_kerja'] ??
+            profile?['unit'] ??
+            profile?['bagian'] ??
+            profile?['jabatan'],
+        fallback: 'Biro Umum Setda',
+      );
+
+      _namaPelaporCtrl.text = nama;
+      _unitCtrl.text = unit;
+    } catch (_) {
+      // Kalau profil gagal dibaca, form tetap bisa diisi manual.
+    }
+  }
+
+  Future<void> _loadLaporan() async {
+    if (!mounted) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await _client
+          .from('laporan_kerusakan')
+          .select()
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _laporanList = List<Map<String, dynamic>>.from(data);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  String _safeText(dynamic value, {String fallback = '-'}) {
+    final text = (value ?? '').toString().trim();
+
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return fallback;
+    }
+
+    return text;
+  }
+
+  String _formatKodeLaporan(Map<String, dynamic> item) {
+    final createdAt = DateTime.tryParse(_safeText(item['created_at']));
+    final year = createdAt?.year ?? DateTime.now().year;
+
+    final id = _safeText(item['id']);
+    final shortId = id.length >= 8 ? id.substring(0, 8).toUpperCase() : id;
+
+    return 'LK-$year-$shortId';
+  }
+
+  String _formatTanggal(dynamic value) {
+    final parsed = DateTime.tryParse(_safeText(value));
+
+    if (parsed == null) return '-';
+
+    const bulan = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+
+    return '${parsed.day.toString().padLeft(2, '0')} ${bulan[parsed.month]} ${parsed.year}';
+  }
+
+  String _formatTanggalInput(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  }
+
+  int _countStatus(String status) {
+    return _laporanList.where((e) {
+      final itemStatus = _safeText(e['status']).toLowerCase();
+      return itemStatus == status.toLowerCase();
+    }).length;
   }
 
   @override
@@ -134,12 +205,12 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   Color _statusColor(String status) {
-    switch (status) {
-      case 'Proses':
+    switch (status.toLowerCase()) {
+      case 'proses':
         return AppColors.warning;
-      case 'Selesai':
+      case 'selesai':
         return AppColors.success;
-      case 'Ditolak':
+      case 'ditolak':
         return AppColors.error;
       default:
         return AppColors.textSecondary;
@@ -147,12 +218,12 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   Color _tingkatColor(String tingkat) {
-    switch (tingkat) {
-      case 'Ringan':
+    switch (tingkat.toLowerCase()) {
+      case 'ringan':
         return AppColors.success;
-      case 'Sedang':
+      case 'sedang':
         return AppColors.warning;
-      case 'Berat':
+      case 'berat':
         return AppColors.error;
       default:
         return AppColors.textSecondary;
@@ -160,14 +231,14 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   IconData _jenisAsetIcon(String jenis) {
-    switch (jenis) {
-      case 'Gedung':
+    switch (jenis.toLowerCase()) {
+      case 'gedung':
         return Icons.domain;
-      case 'Kendaraan':
+      case 'kendaraan':
         return Icons.directions_car;
-      case 'Elektronik':
+      case 'elektronik':
         return Icons.devices;
-      case 'Furnitur':
+      case 'furnitur':
         return Icons.chair;
       default:
         return Icons.inventory_2;
@@ -175,26 +246,31 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   void _showDetail(Map<String, dynamic> item) {
+    final status = _safeText(item['status'], fallback: 'Proses');
+    final tingkat = _safeText(item['tingkat'], fallback: 'Ringan');
+    final jenisAset = _safeText(item['jenis_aset'], fallback: 'Lainnya');
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
-        initialChildSize: 0.65,
-        maxChildSize: 0.9,
-        minChildSize: 0.4,
+        initialChildSize: 0.68,
+        maxChildSize: 0.92,
+        minChildSize: 0.42,
         builder: (_, scrollCtrl) => SingleChildScrollView(
           controller: scrollCtrl,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 14, 24, 26),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
+                  width: 44,
                   height: 4,
                   decoration: BoxDecoration(
                     color: AppColors.divider,
@@ -206,15 +282,15 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
-                      _jenisAsetIcon(item['jenisAset']),
+                      _jenisAsetIcon(jenisAset),
                       color: AppColors.primary,
-                      size: 26,
+                      size: 28,
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -223,11 +299,12 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item['namaAset'],
-                          style: AppTextStyles.h3.copyWith(fontSize: 15),
+                          _safeText(item['nama_aset']),
+                          style: AppTextStyles.h3.copyWith(fontSize: 16),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          item['kode'],
+                          _formatKodeLaporan(item),
                           style: const TextStyle(
                             fontSize: 12,
                             color: AppColors.textSecondary,
@@ -236,40 +313,34 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusColor(item['status']).withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      item['status'],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _statusColor(item['status']),
-                      ),
-                    ),
-                  ),
+                  _badge(status, _statusColor(status)),
                 ],
               ),
               const SizedBox(height: 20),
               const Divider(color: AppColors.divider),
               const SizedBox(height: 12),
-              _detailRow('No. Laporan', item['id']),
-              _detailRow('Pelapor', item['pelapor']),
-              _detailRow('Unit / Divisi', item['unit']),
-              _detailRow('Jenis Aset', item['jenisAset']),
-              _detailRow('Lokasi', item['lokasi']),
-              _detailRow('Tanggal', item['tanggal']),
+              _detailRow('No. Laporan', _formatKodeLaporan(item)),
+              _detailRow('Pelapor', _safeText(item['nama_pelapor'])),
+              _detailRow('Unit / Divisi', _safeText(item['unit'])),
+              _detailRow('Jenis Aset', jenisAset),
+              _detailRow('Kode Aset', _safeText(item['kode_aset'])),
+              _detailRow('Lokasi', _safeText(item['lokasi'])),
+              _detailRow(
+                'Tanggal Kejadian',
+                _formatTanggal(item['tanggal_kejadian']),
+              ),
               _detailRow(
                 'Tingkat Kerusakan',
-                item['tingkat'],
-                valueColor: _tingkatColor(item['tingkat']),
+                tingkat,
+                valueColor: _tingkatColor(tingkat),
               ),
+              if (_safeText(item['catatan_admin']).trim() != '-') ...[
+                _detailRow(
+                  'Catatan Admin',
+                  _safeText(item['catatan_admin']),
+                  valueColor: AppColors.textSecondary,
+                ),
+              ],
               const SizedBox(height: 12),
               Text(
                 'Deskripsi Kerusakan',
@@ -278,23 +349,23 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                   fontSize: 12,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  item['deskripsi'],
+                  _safeText(item['deskripsi']),
                   style: const TextStyle(
                     fontSize: 13.5,
                     color: AppColors.textPrimary,
+                    height: 1.5,
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -333,14 +404,55 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
     );
   }
 
-  void _submitLaporan() {
-    if (_formKey.currentState!.validate()) {
-      if (_tanggalKejadian == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tanggal kejadian wajib diisi')),
-        );
-        return;
-      }
+  Future<void> _submitLaporan() async {
+    if (_submitting) return;
+
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_tanggalKejadian == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tanggal kejadian wajib diisi')),
+      );
+      return;
+    }
+
+    final user = _client.auth.currentUser;
+
+    if (user == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User belum login')));
+      return;
+    }
+
+    setState(() => _submitting = true);
+
+    try {
+      await _client.from('laporan_kerusakan').insert({
+        'user_id': user.id,
+        'nama_pelapor': _namaPelaporCtrl.text.trim(),
+        'unit': _unitCtrl.text.trim(),
+        'jenis_aset': _jenisAset,
+        'nama_aset': _namaAsetCtrl.text.trim(),
+        'kode_aset': _kodeAsetCtrl.text.trim().isEmpty
+            ? null
+            : _kodeAsetCtrl.text.trim(),
+        'lokasi': _lokasiCtrl.text.trim(),
+        'tingkat': _tingkatKerusakan,
+        'deskripsi': _deskripsiCtrl.text.trim(),
+        'tanggal_kejadian':
+            '${_tanggalKejadian!.year.toString().padLeft(4, '0')}-${_tanggalKejadian!.month.toString().padLeft(2, '0')}-${_tanggalKejadian!.day.toString().padLeft(2, '0')}',
+        'status': 'Proses',
+      });
+
+      if (!mounted) return;
+
+      setState(() => _submitting = false);
+
+      await _loadLaporan();
+
+      if (!mounted) return;
+
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -360,7 +472,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
+                  color: AppColors.success.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -395,17 +507,29 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
           ],
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _submitting = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mengirim laporan: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
   void _resetForm() {
     _formKey.currentState?.reset();
-    _namaPelaporCtrl.clear();
-    _unitCtrl.clear();
+
     _namaAsetCtrl.clear();
     _kodeAsetCtrl.clear();
     _lokasiCtrl.clear();
     _deskripsiCtrl.clear();
+
     setState(() {
       _tanggalKejadian = null;
       _jenisAset = 'Gedung';
@@ -459,100 +583,143 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   // ─── Tab 1: Daftar Laporan ───────────────────────────────────────────────
   Widget _buildDaftarTab() {
     final list = _filteredList;
-    return Column(
-      children: [
-        // Filter chips
-        Container(
-          color: AppColors.surface,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: List.generate(_filters.length, (i) {
-                final selected = _filterIndex == i;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(_filters[i]),
-                    selected: selected,
-                    selectedColor: AppColors.primary,
-                    backgroundColor: AppColors.surfaceVariant,
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : AppColors.textSecondary,
-                    ),
-                    onSelected: (_) => setState(() => _filterIndex = i),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ),
-        // Summary row
-        Container(
-          color: AppColors.surface,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: Row(
+
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _summaryChip(
-                'Total',
-                _laporanList.length.toString(),
-                AppColors.primary,
+              const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.error,
+                size: 48,
               ),
-              const SizedBox(width: 8),
-              _summaryChip(
-                'Proses',
-                _laporanList
-                    .where((e) => e['status'] == 'Proses')
-                    .length
-                    .toString(),
-                AppColors.warning,
+              const SizedBox(height: 12),
+              const Text('Gagal memuat laporan', style: AppTextStyles.h3),
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodySmall,
               ),
-              const SizedBox(width: 8),
-              _summaryChip(
-                'Selesai',
-                _laporanList
-                    .where((e) => e['status'] == 'Selesai')
-                    .length
-                    .toString(),
-                AppColors.success,
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadLaporan,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Coba Lagi'),
               ),
             ],
           ),
         ),
-        const Divider(height: 1, color: AppColors.divider),
-        // List
-        Expanded(
-          child: list.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadLaporan,
+      child: Column(
+        children: [
+          Container(
+            color: AppColors.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: List.generate(_filters.length, (i) {
+                  final selected = _filterIndex == i;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(_filters[i]),
+                      selected: selected,
+                      selectedColor: AppColors.primary,
+                      backgroundColor: AppColors.surfaceVariant,
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: selected
+                            ? Colors.white
+                            : AppColors.textSecondary,
+                      ),
+                      onSelected: (_) {
+                        setState(() => _filterIndex = i);
+                      },
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+
+          Container(
+            color: AppColors.surface,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                _summaryChip(
+                  'Total',
+                  _laporanList.length.toString(),
+                  AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                _summaryChip(
+                  'Proses',
+                  _countStatus('Proses').toString(),
+                  AppColors.warning,
+                ),
+                const SizedBox(width: 8),
+                _summaryChip(
+                  'Selesai',
+                  _countStatus('Selesai').toString(),
+                  AppColors.success,
+                ),
+              ],
+            ),
+          ),
+
+          const Divider(height: 1, color: AppColors.divider),
+
+          Expanded(
+            child: list.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 120),
                       Icon(
                         Icons.report_problem_outlined,
                         size: 56,
                         color: AppColors.textHint,
                       ),
                       SizedBox(height: 12),
-                      Text(
-                        'Tidak ada laporan',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
+                      Center(
+                        child: Text(
+                          'Tidak ada laporan',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ],
+                  )
+                : ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) => _laporanTile(list[i]),
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _laporanTile(list[i]),
-                ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -560,7 +727,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha:0.1),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -581,8 +748,13 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   Widget _laporanTile(Map<String, dynamic> item) {
-    final statusColor = _statusColor(item['status']);
-    final tingkatColor = _tingkatColor(item['tingkat']);
+    final status = _safeText(item['status'], fallback: 'Proses');
+    final tingkat = _safeText(item['tingkat'], fallback: 'Ringan');
+    final jenisAset = _safeText(item['jenis_aset'], fallback: 'Lainnya');
+
+    final statusColor = _statusColor(status);
+    final tingkatColor = _tingkatColor(tingkat);
+
     return GestureDetector(
       onTap: () => _showDetail(item),
       child: Container(
@@ -608,7 +780,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  _jenisAsetIcon(item['jenisAset']),
+                  _jenisAsetIcon(jenisAset),
                   color: AppColors.primary,
                   size: 22,
                 ),
@@ -619,23 +791,25 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item['namaAset'],
+                      _safeText(item['nama_aset']),
                       style: AppTextStyles.h4.copyWith(fontSize: 13.5),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item['id']} · ${item['lokasi']}',
+                      '${_formatKodeLaporan(item)} · ${_safeText(item['lokasi'])}',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: AppColors.textSecondary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        _badge(item['tingkat'], tingkatColor),
+                        _badge(tingkat, tingkatColor),
                         const SizedBox(width: 6),
                         const Icon(
                           Icons.person_outline,
@@ -645,7 +819,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                         const SizedBox(width: 3),
                         Flexible(
                           child: Text(
-                            '${item['pelapor']} · ${item['tanggal']}',
+                            '${_safeText(item['nama_pelapor'])} · ${_formatTanggal(item['tanggal_kejadian'])}',
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textHint,
@@ -662,7 +836,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _badge(item['status'], statusColor),
+                  _badge(status, statusColor),
                   const SizedBox(height: 6),
                   const Icon(
                     Icons.chevron_right,
@@ -682,7 +856,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha:0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -743,7 +917,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                           'Laporkan kerusakan aset untuk segera ditindaklanjuti',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha:0.8),
                           ),
                         ),
                       ],
@@ -939,15 +1113,24 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _submitLaporan,
-                icon: const Icon(
-                  Icons.send_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
-                label: const Text(
-                  'Kirim Laporan',
-                  style: TextStyle(
+                onPressed: _submitting ? null : _submitLaporan,
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                label: Text(
+                  _submitting ? 'Mengirim...' : 'Kirim Laporan',
+                  style: const TextStyle(
                     fontFamily: 'Poppins',
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -956,6 +1139,9 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
+                  disabledBackgroundColor: AppColors.primary.withValues(
+                    alpha: 0.55,
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -968,7 +1154,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
             SizedBox(
               width: double.infinity,
               child: TextButton(
-                onPressed: _resetForm,
+                onPressed: _submitting ? null : _resetForm,
                 child: const Text(
                   'Reset Form',
                   style: TextStyle(
@@ -1085,7 +1271,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
                       style: TextStyle(
                         fontSize: 13.5,
                         color: itemColors != null
-                            ? (itemColors[e] ?? AppColors.textPrimary)
+                            ? itemColors[e] ?? AppColors.textPrimary
                             : AppColors.textPrimary,
                         fontWeight: itemColors != null
                             ? FontWeight.w600

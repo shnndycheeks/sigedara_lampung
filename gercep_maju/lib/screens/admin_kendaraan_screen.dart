@@ -91,6 +91,29 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
     super.dispose();
   }
 
+  int? _parseValidYear(String raw) {
+    final value = int.tryParse(raw);
+    if (value == null) return null;
+    final maxYear = DateTime.now().year + 1;
+    if (value < 1980 || value > maxYear) return null;
+    return value;
+  }
+
+  String? _validateKendaraanForm({
+    required String nama,
+    required String plat,
+    required String tahun,
+    required String warna,
+  }) {
+    if (nama.isEmpty) return 'Nama kendaraan wajib diisi.';
+    if (plat.isEmpty) return 'Nomor plat wajib diisi.';
+    if (warna.isEmpty) return 'Warna kendaraan wajib diisi.';
+    if (_parseValidYear(tahun) == null) {
+      return 'Tahun kendaraan tidak valid (contoh: 2024).';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,6 +121,9 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
       appBar: AppBar(
         title: const Text('Manajemen Kendaraan'),
         backgroundColor: AppColors.primaryDark,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        ),
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
@@ -120,6 +146,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(context, null),
         backgroundColor: AppColors.primaryDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Tambah',
@@ -135,45 +162,75 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _searchQuery = v),
-              style: AppTextStyles.body,
-              decoration: InputDecoration(
-                hintText: 'Cari kendaraan / nomor plat...',
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _searchQuery = v),
+                    style: AppTextStyles.body,
+                    decoration: InputDecoration(
+                      hintText: 'Cari kendaraan / nomor plat...',
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.divider),
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                size: 18,
+                                color: AppColors.textSecondary,
+                              ),
+                              onPressed: () => setState(() {
+                                _searchCtrl.clear();
+                                _searchQuery = '';
+                              }),
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.divider),
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.clear,
-                          size: 18,
-                          color: AppColors.textSecondary,
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Laporan Kerusakan',
+                  child: InkWell(
+                    onTap: () => NavigationService.goToTabAdmin?.call(4),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 44,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.error.withValues(alpha: 0.3),
                         ),
-                        onPressed: () => setState(() {
-                          _searchCtrl.clear();
-                          _searchQuery = '';
-                        }),
-                      )
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+                      ),
+                      child: const Icon(
+                        Icons.report_problem_rounded,
+                        color: AppColors.error,
+                        size: 20,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 10),
@@ -290,7 +347,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
                 const Text('Jenis', style: AppTextStyles.label),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: selectedJenis,
+                  initialValue: selectedJenis,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColors.surfaceVariant,
@@ -313,7 +370,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
                 const Text('Status', style: AppTextStyles.label),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: selectedStatus,
+                  initialValue: selectedStatus,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: AppColors.surfaceVariant,
@@ -345,24 +402,43 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
             ),
             ElevatedButton(
               onPressed: () {
+                final nama = namaCtrl.text.trim();
+                final plat = platCtrl.text.trim().toUpperCase();
+                final tahun = tahunCtrl.text.trim();
+                final warna = warnaCtrl.text.trim();
+
+                final validationMessage = _validateKendaraanForm(
+                  nama: nama,
+                  plat: plat,
+                  tahun: tahun,
+                  warna: warna,
+                );
+
+                if (validationMessage != null) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(validationMessage)));
+                  return;
+                }
+
                 setState(() {
                   if (existing == null) {
                     _kendaraanList.add({
-                      'nama': namaCtrl.text,
-                      'plat': platCtrl.text,
+                      'nama': nama,
+                      'plat': plat,
                       'jenis': selectedJenis,
-                      'tahun': tahunCtrl.text,
-                      'warna': warnaCtrl.text,
+                      'tahun': tahun,
+                      'warna': warna,
                       'status': selectedStatus,
                       'peminjam': '',
                       'bbm': 'Bensin',
                     });
                   } else {
-                    existing['nama'] = namaCtrl.text;
-                    existing['plat'] = platCtrl.text;
+                    existing['nama'] = nama;
+                    existing['plat'] = plat;
                     existing['jenis'] = selectedJenis;
-                    existing['tahun'] = tahunCtrl.text;
-                    existing['warna'] = warnaCtrl.text;
+                    existing['tahun'] = tahun;
+                    existing['warna'] = warna;
                     existing['status'] = selectedStatus;
                   }
                 });
