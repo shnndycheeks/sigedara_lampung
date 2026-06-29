@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "223837631510",
+    "project_id": "sigedara",
+    "storage_bucket": "sigedara.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:223837631510:android:d12f8c4a4f4685dc9c3137",
+        "android_client_info": {
+          "package_name": "com.example.gercep_maju"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxvxjc0GWGWu-pRld9z3YEMWEhyzS6oug"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
