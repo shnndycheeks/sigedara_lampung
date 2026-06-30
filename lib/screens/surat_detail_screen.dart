@@ -4,11 +4,12 @@ import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'dart:typed_data';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/supabase_config.dart';
 import '../models/arsip_surat_model.dart';
 import '../services/arsip_surat_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
-import 'package:photo_view/photo_view.dart';
 import 'tambah_edit_surat_screen.dart';
 import 'full_screen_image_screen.dart';
 
@@ -49,6 +50,94 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
         setState(() {
           _signedUrl = _arsip.fileUrl;
         });
+      }
+    }
+  }
+
+  Future<void> _kirimKeWhatsAppKepalaBiro() async {
+    final nomor = _arsip.nomorSurat;
+    final tanggal = _formatTanggal(_arsip.tanggalSurat);
+    final perihal = _arsip.judul;
+    final dari = _arsip.dari;
+    
+    final message = "Assalamu'alaikum Wr. Wb.\n\n"
+        "Yth. Kepala Biro\n\n"
+        "Terdapat surat masuk baru yang memerlukan disposisi.\n\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "Nomor Surat:\n$nomor\n\n"
+        "Perihal:\n$perihal\n\n"
+        "Asal Surat:\n$dari\n\n"
+        "Tanggal Surat:\n$tanggal\n\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "Silakan melakukan disposisi melalui Google Form berikut:\n\n"
+        "${SupabaseConfig.googleFormUrl}\n\n"
+        "Terima kasih.";
+
+    final encodedMessage = Uri.encodeComponent(message);
+    final phone = "62887437216916";
+    final whatsappAppUri = Uri.parse("whatsapp://send?phone=$phone&text=$encodedMessage");
+    final whatsappWebUri = Uri.parse("https://wa.me/$phone?text=$encodedMessage");
+    
+    try {
+      bool launched = false;
+      try {
+        if (await canLaunchUrl(whatsappAppUri)) {
+          launched = await launchUrl(whatsappAppUri, mode: LaunchMode.externalApplication);
+        }
+      } catch (_) {}
+      
+      if (!launched) {
+        try {
+          if (await canLaunchUrl(whatsappWebUri)) {
+            launched = await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
+          }
+        } catch (_) {}
+      }
+
+      if (launched) {
+        setState(() {
+          _loading = true;
+        });
+        
+        await ArsipSuratService.updateStatusPengiriman(
+          id: _arsip.id,
+          status: 'sudah_dikirim_karo',
+          existingDeskripsi: _arsip.deskripsi,
+        );
+        
+        final data = await ArsipSuratService.getSemuaArsip();
+        final updated = data.firstWhere((s) => s.id == _arsip.id);
+        
+        if (mounted) {
+          setState(() {
+            _arsip = updated;
+            _loading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ WhatsApp Kepala Biro berhasil dibuka.'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        throw 'WhatsApp tidak ditemukan pada perangkat.';
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().contains('tidak ditemukan')
+                ? '❌ WhatsApp tidak ditemukan pada perangkat.'
+                : '❌ Gagal memicu WhatsApp: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }
@@ -116,7 +205,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Arsip berhasil diperbarui.'),
+            content: Text('✅ Arsip surat berhasil disimpan.'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
@@ -300,8 +389,17 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                         _buildInfoRow('Asal Surat (Dari)', _arsip.dari),
                         _buildInfoRow('Tanggal Surat', _formatTanggal(_arsip.tanggalSurat)),
                         _buildInfoRow('Kategori', _arsip.kategori),
-                        _buildInfoRow('Penerima Disposisi', _arsip.kepada),
-                        _buildInfoRow('Instruksi Disposisi', _arsip.instruksiDisposisi),
+                        if (_arsip.kepada.isNotEmpty)
+                          _buildInfoRow('Penerima Disposisi', _arsip.kepada),
+                        if (_arsip.instruksiDisposisi.isNotEmpty)
+                          _buildInfoRow('Instruksi Disposisi', _arsip.instruksiDisposisi),
+                        _buildInfoRow(
+                          'Status Pengiriman',
+                          _arsip.statusPengiriman == 'sudah_dikirim_karo'
+                              ? 'Sudah Dikirim ke Kepala Biro'
+                              : 'Belum Dikirim ke Kepala Biro',
+                          isStatus: true,
+                        ),
                         if (_arsip.fileSize != null)
                           _buildInfoRow('Ukuran Berkas', '${(_arsip.fileSize! / 1024).toStringAsFixed(1)} KB'),
                       ],
@@ -309,32 +407,118 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Timeline Status
-                  const Text('Timeline Status Arsip', style: AppTextStyles.h3),
-                  const SizedBox(height: 12),
-                  NeuCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: Column(
+                  // Catatan Info Card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTimelineNode(
-                          title: 'Surat Masuk Diterima',
-                          description: 'Tanggal surat tertulis: ${_formatTanggal(_arsip.tanggalSurat)}',
-                          isDone: true,
-                          isLast: false,
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          color: AppColors.primary,
+                          size: 24,
                         ),
-                        _buildTimelineNode(
-                          title: 'Selesai Diarsipkan',
-                          description: 'Diunggah ke cloud storage sistem pada ${_formatTanggal(_arsip.createdAt)}',
-                          isDone: true,
-                          isLast: false,
-                        ),
-                        _buildTimelineNode(
-                          title: 'Disposisi Ditugaskan',
-                          description: 'Diinstruksikan kepada: ${_arsip.kepada}',
-                          isDone: _arsip.kepada.isNotEmpty,
-                          isLast: true,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Catatan',
+                                style: TextStyle(
+                                  fontFamily: 'Poppins',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Setelah tombol Kirim ke WhatsApp Kepala Biro ditekan, proses disposisi selanjutnya dilakukan melalui WhatsApp dan Google Form.\n\nSistem SIGEDARA hanya digunakan sebagai media pengarsipan surat masuk.',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textSecondary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // WhatsApp Disposisi Action Button
+                  if (_arsip.statusPengiriman == 'sudah_dikirim_karo') ...[
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.check_circle, size: 16, color: AppColors.success),
+                            SizedBox(width: 6),
+                            Text(
+                              'Sudah dikirim ke Kepala Biro',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : _kirimKeWhatsAppKepalaBiro,
+                      icon: const Icon(Icons.chat_rounded, color: Colors.white),
+                      label: Text(
+                        _arsip.statusPengiriman == 'sudah_dikirim_karo'
+                            ? 'Kirim Ulang ke WhatsApp Kepala Biro'
+                            : 'Kirim ke WhatsApp Kepala Biro',
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366), // WA Green
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      'WhatsApp akan terbuka otomatis beserta pesan dan tautan Google Form.',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textHint,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -415,7 +599,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {bool isStatus = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -429,74 +613,61 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: AppTextStyles.body.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
-            ),
+            child: isStatus
+                ? Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: value.contains('Sudah Dikirim')
+                              ? AppColors.success.withValues(alpha: 0.1)
+                              : AppColors.warning.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: value.contains('Sudah Dikirim')
+                                ? AppColors.success.withValues(alpha: 0.3)
+                                : AppColors.warning.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: value.contains('Sudah Dikirim')
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              value,
+                              style: AppTextStyles.caption.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: value.contains('Sudah Dikirim')
+                                    ? AppColors.success
+                                    : AppColors.warning,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    value,
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTimelineNode({
-    required String title,
-    required String description,
-    required bool isDone,
-    required bool isLast,
-  }) {
-    final activeColor = isDone ? AppColors.success : AppColors.divider;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          children: [
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDone ? activeColor.withValues(alpha: 0.15) : Colors.transparent,
-                border: Border.all(color: activeColor, width: 2),
-              ),
-              child: isDone
-                  ? Icon(Icons.check, size: 12, color: activeColor)
-                  : const SizedBox.shrink(),
-            ),
-            if (!isLast)
-              Container(
-                width: 2,
-                height: 38,
-                color: activeColor,
-              ),
-          ],
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTextStyles.body.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: isDone ? AppColors.textPrimary : AppColors.textHint,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                description,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: isDone ? AppColors.textSecondary : AppColors.textHint,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

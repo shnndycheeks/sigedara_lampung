@@ -121,7 +121,7 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Arsip surat masuk berhasil disimpan.'),
+          content: Text('✅ Arsip surat berhasil disimpan.'),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
@@ -259,9 +259,9 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
             const SizedBox(height: 60),
             EmptyState(
               icon: Icons.drafts_outlined,
-              title: 'Belum Ada Arsip',
+              title: _searchQuery.isEmpty ? 'Belum ada arsip surat.' : 'Belum Ada Arsip',
               subtitle: _searchQuery.isEmpty
-                  ? 'Tidak ada arsip surat masuk terdaftar di kategori ini.'
+                  ? 'Tekan tombol Tambah Arsip untuk mengunggah surat pertama.'
                   : 'Tidak ditemukan arsip surat cocok dengan kueri pencarian.',
             ),
           ],

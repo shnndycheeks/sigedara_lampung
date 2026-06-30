@@ -78,6 +78,24 @@ class ArsipSuratService {
     }
   }
 
+  static Future<void> updateStatusPengiriman({
+    required String id,
+    required String status,
+    required Map<String, dynamic> existingDeskripsi,
+  }) async {
+    try {
+      final updatedDeskripsi = Map<String, dynamic>.from(existingDeskripsi);
+      updatedDeskripsi['status_pengiriman'] = status;
+      updatedDeskripsi['status_disposisi'] = status;
+
+      await _client.from(_tableName).update({
+        'deskripsi': updatedDeskripsi,
+      }).eq('id', id);
+    } catch (e) {
+      throw Exception('Gagal memperbarui status pengiriman: $e');
+    }
+  }
+
   static Future<void> hapusArsip({
     required String id,
     required String filePath,

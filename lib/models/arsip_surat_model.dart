@@ -19,6 +19,7 @@ class ArsipSurat {
   final String kepada;
   final String instruksiDisposisi;
   final String tingkatUrgensi;
+  final String statusPengiriman;
 
   ArsipSurat({
     required this.id,
@@ -37,6 +38,7 @@ class ArsipSurat {
     required this.kepada,
     required this.instruksiDisposisi,
     required this.tingkatUrgensi,
+    required this.statusPengiriman,
   });
 
   factory ArsipSurat.fromJson(Map<String, dynamic> json) {
@@ -77,6 +79,7 @@ class ArsipSurat {
       kepada: rawDeskripsi['kepada']?.toString() ?? '',
       instruksiDisposisi: rawDeskripsi['instruksi_disposisi']?.toString() ?? '',
       tingkatUrgensi: rawDeskripsi['tingkat_urgensi']?.toString() ?? 'Biasa',
+      statusPengiriman: rawDeskripsi['status_pengiriman']?.toString() ?? rawDeskripsi['status_disposisi']?.toString() ?? 'belum_dikirim_karo',
     );
   }
 

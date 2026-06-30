@@ -22,7 +22,6 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
   final _nomorCtrl = TextEditingController();
   final _dariCtrl = TextEditingController();
   final _kepadaCtrl = TextEditingController();
-  final _instruksiCtrl = TextEditingController();
   
   DateTime? _selectedTanggal;
   String _selectedUrgensi = 'Biasa';
@@ -46,7 +45,6 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       _nomorCtrl.text = e.nomorSurat;
       _dariCtrl.text = e.dari;
       _kepadaCtrl.text = e.kepada;
-      _instruksiCtrl.text = e.instruksiDisposisi;
       _selectedTanggal = e.tanggalSurat;
       // Map existing urgensi to match standard values or fallback
       _selectedUrgensi = ['Biasa', 'Segera', 'Sangat Segera'].contains(e.tingkatUrgensi)
@@ -66,7 +64,6 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
     _nomorCtrl.dispose();
     _dariCtrl.dispose();
     _kepadaCtrl.dispose();
-    _instruksiCtrl.dispose();
     super.dispose();
   }
 
@@ -220,15 +217,19 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       final nomor = _nomorCtrl.text.trim();
       final dari = _dariCtrl.text.trim();
       final kepada = _kepadaCtrl.text.trim();
-      final instruksi = _instruksiCtrl.text.trim();
+
+      final statusPengiriman = widget.existing?.statusPengiriman ?? 'belum_dikirim_karo';
+      final instruksiDisposisi = widget.existing?.instruksiDisposisi ?? '';
 
       final deskripsiMap = {
         'nomor_surat': nomor,
         'tanggal_surat': _selectedTanggal?.toIso8601String() ?? '',
         'dari': dari,
         'kepada': kepada,
-        'instruksi_disposisi': instruksi,
+        'instruksi_disposisi': instruksiDisposisi,
         'tingkat_urgensi': _selectedUrgensi,
+        'status_pengiriman': statusPengiriman,
+        'status_disposisi': statusPengiriman,
       };
 
       String finalFileUrl = widget.existing?.fileUrl ?? '';
@@ -440,20 +441,6 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                               hintText: 'Tujuan penerima disposisi',
                             ),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Penerima disposisi wajib diisi' : null,
-                          ),
-                          const SizedBox(height: 14),
-
-                          // Instruksi Disposisi
-                          const Text('Instruksi Disposisi', style: AppTextStyles.label),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _instruksiCtrl,
-                            style: AppTextStyles.body,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              hintText: 'Instruksi tindakan lanjut',
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Instruksi disposisi wajib diisi' : null,
                           ),
                         ],
                       ),
