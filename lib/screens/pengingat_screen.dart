@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/navigation_service.dart';
 
 class PengingatScreen extends StatefulWidget {
   const PengingatScreen({super.key});
@@ -76,41 +77,52 @@ class _PengingatScreenState extends State<PengingatScreen> {
       ],
     );
 
-    if (standalone) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: const Text('Pengingat Pajak & Servis'),
-          backgroundColor: AppColors.primary,
-          iconTheme: const IconThemeData(color: Colors.white),
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            onPressed: () => Navigator.pop(context),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text(
+          'Pengingat Pajak & Servis',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        body: body,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _showTambahPengingatDialog(context),
-          backgroundColor: AppColors.primary,
-          icon: const Icon(Icons.add_alarm, color: Colors.white),
-          label: const Text(
-            'Tambah Pengingat',
-            style: TextStyle(
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-              fontSize: 13,
-            ),
+        backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+          onPressed: () {
+            if (standalone) {
+              Navigator.pop(context);
+            } else {
+              NavigationService.goHomeUser?.call();
+            }
+          },
+        ),
+      ),
+      body: SafeArea(child: body),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showTambahPengingatDialog(context),
+        backgroundColor: AppColors.primary,
+        icon: const Icon(Icons.add_alarm, color: Colors.white),
+        label: const Text(
+          'Tambah Pengingat',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontSize: 13,
           ),
         ),
-      );
-    }
-
-    return body;
+      ),
+    );
   }
 
   void _showUploadDialog(BuildContext ctx, Map<String, dynamic> data) {

@@ -498,10 +498,18 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Laporan Kerusakan'),
-        backgroundColor: AppColors.primary,
+        title: const Text(
+          'Laporan Kerusakan',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
         automaticallyImplyLeading: false,
-        foregroundColor: Colors.white,
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,

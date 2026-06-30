@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
@@ -43,64 +44,100 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          // ── Header ────────────────────────────────────────────────────────
-          SliverAppBar(
-            expandedHeight: 200,
-            pinned: true,
-            elevation: 0,
-            backgroundColor: AppColors.primaryDark,
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.report_problem_outlined,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                tooltip: 'Laporan Kerusakan',
-                onPressed: () => NavigationService.goToTabAdmin?.call(4),
+      backgroundColor: const Color(0xFFF8FAFC), // Light slate background
+      body: Stack(
+        children: [
+          // Studio Spotlight Glows (Sangat halus, kuning & amber)
+          Positioned(
+            top: 100,
+            right: -150,
+            child: Container(
+              width: 500,
+              height: 500,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFEAB308).withValues(alpha: 0.04), // Spotlight kuning sangat tipis
               ),
-              Stack(
-                alignment: Alignment.center,
-                children: [
+            ),
+          ),
+          Positioned(
+            bottom: -100,
+            left: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFD97706).withValues(alpha: 0.03), // Spotlight amber sangat tipis
+              ),
+            ),
+          ),
+          // Blur tinggi untuk transisi halus
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+              child: const SizedBox(),
+            ),
+          ),
+
+          // Konten Utama
+          CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              // ── Header ────────────────────────────────────────────────────────
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                elevation: 0,
+                backgroundColor: const Color(0xFFCA8A04), // Warna header saat collapse (Yellow 600)
+                automaticallyImplyLeading: false,
+                actions: [
                   IconButton(
                     icon: const Icon(
-                      Icons.notifications_outlined,
+                      Icons.report_problem_outlined,
                       color: Colors.white,
                       size: 24,
                     ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotifikasiScreen(),
-                      ),
-                    ),
+                    tooltip: 'Laporan Kerusakan',
+                    onPressed: () => NavigationService.goToTabAdmin?.call(4),
                   ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.warning,
-                        shape: BoxShape.circle,
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.notifications_outlined,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotifikasiScreen(),
+                          ),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.warning,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(width: 4),
                 ],
+                flexibleSpace: FlexibleSpaceBar(
+                  collapseMode: CollapseMode.parallax,
+                  background: _HeaderBackground(),
+                ),
               ),
-              const SizedBox(width: 4),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.parallax,
-              background: _HeaderBackground(),
-            ),
-          ),
 
           // ── Body ─────────────────────────────────────────────────────────
           SliverToBoxAdapter(
@@ -163,7 +200,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 icon: Icons.inventory_2_rounded,
                                 label: 'Aset Aktif',
                                 value: '47',
-                                color: AppColors.primary,
+                                color: const Color(0xFFCA8A04), // Gold/Yellow
                                 trend: '3 baru',
                                 onTap: () =>
                                     NavigationService.goToTabAdmin?.call(3),
@@ -250,6 +287,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                     ),
                   ),
           ),
+            ],
+          ),
         ],
       ),
     );
@@ -315,7 +354,10 @@ class _HeaderBackground extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFF6B4C00), AppColors.primaryDark, Color(0xFF3D2600)],
+          colors: [
+            Color(0xFFD97706), // Amber 600
+            Color(0xFFCA8A04), // Yellow 600
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -331,7 +373,7 @@ class _HeaderBackground extends StatelessWidget {
               height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.gold.withValues(alpha: 0.06),
+                color: Colors.white.withValues(alpha: 0.12),
               ),
             ),
           ),
@@ -343,7 +385,7 @@ class _HeaderBackground extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.gold.withValues(alpha: 0.05),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -355,7 +397,7 @@ class _HeaderBackground extends StatelessWidget {
               height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.gold.withValues(alpha: 0.04),
+                color: Colors.white.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -422,12 +464,12 @@ class _HeaderBackground extends StatelessWidget {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.gold.withValues(
+                                    color: Colors.white.withValues(
                                       alpha: 0.2,
                                     ),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: AppColors.gold.withValues(
+                                      color: Colors.white.withValues(
                                         alpha: 0.5,
                                       ),
                                       width: 0.8,
@@ -439,7 +481,7 @@ class _HeaderBackground extends StatelessWidget {
                                       fontFamily: 'Poppins',
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
-                                      color: AppColors.gold,
+                                      color: Colors.white,
                                       letterSpacing: 1.2,
                                     ),
                                   ),

@@ -119,8 +119,17 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Manajemen Kendaraan'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text(
+          'Manajemen Kendaraan',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
         ),
@@ -145,7 +154,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(context, null),
-        backgroundColor: AppColors.primaryDark,
+        backgroundColor: AdminColors.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -445,7 +454,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryDark,
+                backgroundColor: AdminColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),

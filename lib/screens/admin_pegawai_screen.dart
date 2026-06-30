@@ -220,8 +220,16 @@ class _AdminPegawaiScreenState extends State<AdminPegawaiScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Daftar Pegawai'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text(
+          'Daftar Pegawai',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(

@@ -195,9 +195,18 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Manajemen Aset'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text(
+          'Manajemen Aset',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
         automaticallyImplyLeading: false,
+        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
@@ -228,7 +237,7 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(context, null),
-        backgroundColor: AppColors.primaryDark,
+        backgroundColor: AdminColors.primary,
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Tambah Aset',
@@ -724,7 +733,7 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryDark,
+                    backgroundColor: AdminColors.primary,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),

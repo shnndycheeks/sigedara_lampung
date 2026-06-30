@@ -4,16 +4,16 @@ class AppColors {
   // ─────────────────────────────────────────────────────────────
   // BLUE THEME
   // ─────────────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF2563EB);
+  static const Color primary = Color(0xFF0284C7); // Rich sky blue
   static const Color primaryDark = Color(0xFF0F2A5F);
-  static const Color primaryLight = Color(0xFF60A5FA);
+  static const Color primaryLight = Color(0xFF38BDF8);
 
   // Nama gold tetap dipertahankan supaya kode lama kamu tidak error.
   // Tapi warnanya sekarang dibuat biru muda/cyan.
   static const Color gold = Color(0xFF38BDF8);
   static const Color goldLight = Color(0xFFBAE6FD);
 
-  static const Color background = Color(0xFFF5F8FF);
+  static const Color background = Color(0xFFF8FAFC); // Light slate background
   static const Color surface = Color(0xFFFFFFFF);
   static const Color surfaceVariant = Color(0xFFEFF6FF);
 
@@ -28,6 +28,13 @@ class AppColors {
 
   static const Color divider = Color(0xFFD8E4F8);
   static const Color shadow = Color(0x1A2563EB);
+}
+
+class AdminColors {
+  static const Color primary = Color(0xFFCA8A04); // Yellow/Gold 600
+  static const Color primaryDark = Color(0xFF854D0E); // Yellow/Gold 800
+  static const Color primaryLight = Color(0xFFFEF08A); // Yellow 200
+  static const Color background = Color(0xFFF8FAFC);
 }
 
 class AppTextStyles {

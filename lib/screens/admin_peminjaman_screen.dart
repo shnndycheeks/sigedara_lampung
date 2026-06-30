@@ -324,8 +324,16 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Peminjaman'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text(
+          'Daftar Peminjaman',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
@@ -1540,8 +1548,17 @@ class _AdminDetailPeminjamanScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isGedung ? 'Detail Peminjaman Gedung' : 'Detail Kendaraan'),
-        backgroundColor: AppColors.primaryDark,
+        title: Text(
+          isGedung ? 'Detail Peminjaman Gedung' : 'Detail Kendaraan',
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),

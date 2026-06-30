@@ -30,7 +30,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
             expandedHeight: 210,
             pinned: true,
             automaticallyImplyLeading: false,
-            backgroundColor: AppColors.primaryDark,
+            backgroundColor: AdminColors.primary,
             leading: IconButton(
               icon: const Icon(
                 Icons.arrow_back_ios_new_rounded,
@@ -64,7 +64,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.primaryDark, Color(0xFF5C4000)],
+                    colors: [AdminColors.primaryDark, const Color(0xFF854D0E)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

@@ -325,7 +325,15 @@ class _PeminjamanScreenState extends State<PeminjamanScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Peminjaman Gedung'),
+        title: const Text(
+          'Peminjaman Gedung',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: AppColors.primary,
         automaticallyImplyLeading: false,
         leading: IconButton(
@@ -1628,8 +1636,17 @@ class DetailPeminjamanScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Detail Peminjaman'),
+        title: const Text(
+          'Detail Peminjaman',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -2277,8 +2294,17 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Ketersediaan Ruangan'),
+        title: const Text(
+          'Ketersediaan Ruangan',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         backgroundColor: AppColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -2399,21 +2425,33 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                           DateTime.now().day == day &&
                           DateTime.now().month == _month.month &&
                           DateTime.now().year == _month.year;
-                      final Color cellColor = isBooked
-                          ? AppColors.success
-                          : isToday
-                          ? AppColors.primary
-                          : const Color(0xFFFFF3CC);
-                      final Color textColor = (isBooked || isToday)
-                          ? Colors.white
-                          : const Color(0xFF8A6A00);
+
+                      final Color cellColor;
+                      final Color textColor;
+                      final BoxBorder? cellBorder;
+
+                      if (isBooked) {
+                        cellColor = const Color(0xFFFEE2E2); // Soft red
+                        textColor = const Color(0xFFEF4444); // Red
+                        cellBorder = Border.all(color: const Color(0xFFFCA5A5), width: 1);
+                      } else if (isToday) {
+                        cellColor = AppColors.primary;
+                        textColor = Colors.white;
+                        cellBorder = null;
+                      } else {
+                        cellColor = Colors.white;
+                        textColor = const Color(0xFF334155); // Slate 700
+                        cellBorder = Border.all(color: const Color(0xFFE2E8F0), width: 1);
+                      }
+
                       return GestureDetector(
                         onTap: () => _showDayDetail(context, day, isBooked),
                         child: Container(
-                          margin: const EdgeInsets.all(2),
+                          margin: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             color: cellColor,
-                            borderRadius: BorderRadius.circular(8),
+                            shape: BoxShape.circle,
+                            border: cellBorder,
                           ),
                           child: Center(
                             child: Text(
@@ -2421,7 +2459,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                               style: TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: isToday || isBooked ? FontWeight.bold : FontWeight.w500,
                                 color: textColor,
                               ),
                             ),
@@ -2430,27 +2468,27 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   // Legend
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _LegendItem(
-                        color: const Color(0xFFFFF3CC),
+                      const _LegendItem(
+                        color: Colors.white,
+                        borderColor: Color(0xFFE2E8F0),
                         label: 'Tersedia',
-                        textColor: const Color(0xFF8A6A00),
                       ),
                       const SizedBox(width: 16),
                       _LegendItem(
                         color: AppColors.primary,
+                        borderColor: Colors.transparent,
                         label: 'Hari ini',
-                        textColor: Colors.white,
                       ),
                       const SizedBox(width: 16),
-                      _LegendItem(
-                        color: AppColors.success.withValues(alpha: 0.85),
-                        label: 'Sudah Diboking',
-                        textColor: Colors.white,
+                      const _LegendItem(
+                        color: Color(0xFFFEE2E2),
+                        borderColor: Color(0xFFFCA5A5),
+                        label: 'Booking',
                       ),
                     ],
                   ),
@@ -2728,13 +2766,13 @@ class RuanganInfoCard extends StatelessWidget {
 
 class _LegendItem extends StatelessWidget {
   final Color color;
+  final Color borderColor;
   final String label;
-  final Color textColor;
 
   const _LegendItem({
     required this.color,
+    required this.borderColor,
     required this.label,
-    required this.textColor,
   });
 
   @override
@@ -2742,16 +2780,24 @@ class _LegendItem extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 14,
-          height: 14,
+          width: 12,
+          height: 12,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(3),
-            border: null,
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: 1),
           ),
         ),
         const SizedBox(width: 6),
-        Text(label, style: AppTextStyles.caption.copyWith(fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF64748B),
+          ),
+        ),
       ],
     );
   }

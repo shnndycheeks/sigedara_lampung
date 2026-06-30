@@ -523,8 +523,17 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Persetujuan'),
-        backgroundColor: AppColors.primaryDark,
+        title: const Text(
+          'Persetujuan',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: AdminColors.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
