@@ -327,30 +327,32 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
         title: const Text(
           'Daftar Peminjaman',
           style: TextStyle(
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: AdminColors.primary,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: Color(0xFF475569),
             size: 20,
           ),
           onPressed: () => NavigationService.goHomeAdmin?.call(),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF475569)),
             tooltip: 'Refresh Data',
             onPressed: _loadData,
           ),
           IconButton(
-            icon: const Icon(Icons.task_alt_rounded, color: Colors.white),
+            icon: const Icon(Icons.task_alt_rounded, color: Color(0xFFF59E0B)),
             tooltip: 'Proses Persetujuan',
             onPressed: () => Navigator.push(
               context,
@@ -360,7 +362,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
           IconButton(
             icon: const Icon(
               Icons.calendar_month_outlined,
-              color: Colors.white,
+              color: Color(0xFF475569),
             ),
             onPressed: () => Navigator.push(
               context,
@@ -368,21 +370,31 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
             ),
           ),
         ],
-        bottom: TabBar(
-          controller: _tab,
-          indicatorColor: AppColors.gold,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tab,
+              indicatorColor: const Color(0xFFF59E0B),
+              indicatorWeight: 3,
+              labelColor: const Color(0xFFF59E0B),
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+              tabs: const [
+                Tab(text: 'Peminjaman Gedung'),
+                Tab(text: 'Peminjaman Kendaraan'),
+              ],
+            ),
           ),
-          tabs: const [
-            Tab(text: 'Peminjaman Gedung'),
-            Tab(text: 'Peminjaman Kendaraan'),
-          ],
         ),
       ),
       body: _loading
@@ -672,7 +684,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
                     item['fasilitas'].toString(),
                     style: AppTextStyles.bodySmall.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: const Color(0xFFF59E0B),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -708,7 +720,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
                           const Icon(
                             Icons.calendar_today_outlined,
                             size: 18,
-                            color: AppColors.primary,
+                            color: Color(0xFFF59E0B),
                           ),
                           const SizedBox(width: 10),
                           Text(
@@ -905,7 +917,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
                     : const Icon(Icons.save_outlined, size: 16),
                 label: Text(saving ? 'Menyimpan...' : 'Simpan'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: const Color(0xFFF59E0B),
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -1086,18 +1098,18 @@ class _FilterBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
                 color: selectedIndex == i
-                    ? AppColors.primaryDark
+                    ? const Color(0xFFF59E0B)
                     : AppColors.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: selectedIndex == i
-                      ? AppColors.primaryDark
+                      ? const Color(0xFFF59E0B)
                       : AppColors.divider,
                 ),
                 boxShadow: selectedIndex == i
                     ? [
                         BoxShadow(
-                          color: AppColors.primaryDark.withValues(alpha: 0.3),
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -1160,7 +1172,7 @@ class _GedungTile extends StatelessWidget {
 
     final Color roomColor = info != null
         ? info['color'] as Color
-        : AppColors.primary;
+        : const Color(0xFFF59E0B);
 
     final IconData roomIcon = info != null
         ? info['icon'] as IconData
@@ -1198,7 +1210,11 @@ class _GedungTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                StatusBadge(label: status, color: _statusColor(status)),
+                StatusBadge(
+                  label: status,
+                  color: _statusColor(status),
+                  bgColor: Colors.white,
+                ),
                 const SizedBox(width: 4),
                 PopupMenuButton<String>(
                   icon: const Icon(
@@ -1301,12 +1317,12 @@ class _KendaraanTile extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.directions_car_outlined,
-                  color: AppColors.primary,
+                  color: Color(0xFFF59E0B),
                   size: 20,
                 ),
               ),
@@ -1401,12 +1417,12 @@ class _AdminPeminjamanContent extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.person,
-                color: AppColors.primary,
+                color: Color(0xFFF59E0B),
                 size: 18,
               ),
             ),
@@ -1494,7 +1510,7 @@ class _AdminInfoRow extends StatelessWidget {
 
   Color _iconColor() {
     if (icon == Icons.calendar_today_outlined) {
-      return AppColors.primaryDark;
+      return const Color(0xFFF59E0B);
     }
     return AppColors.textSecondary;
   }
@@ -1551,14 +1567,19 @@ class _AdminDetailPeminjamanScreen extends StatelessWidget {
         title: Text(
           isGedung ? 'Detail Peminjaman Gedung' : 'Detail Kendaraan',
           style: const TextStyle(
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: AdminColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFF475569)),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -1736,9 +1757,9 @@ class _DetailRowAdmin extends StatelessWidget {
 
   Color _iconColor() {
     if (icon == Icons.calendar_today_outlined) {
-      return AppColors.primaryDark;
+      return const Color(0xFFF59E0B);
     }
-    return AppColors.primaryDark.withValues(alpha: 0.6);
+    return const Color(0xFFF59E0B).withValues(alpha: 0.6);
   }
 
   @override

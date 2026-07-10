@@ -5,6 +5,7 @@ import '../widgets/common_widgets.dart';
 import '../services/arsip_surat_service.dart';
 import 'tambah_edit_surat_screen.dart';
 import 'surat_detail_screen.dart';
+import '../services/navigation_service.dart';
 
 class AdminSuratScreen extends StatefulWidget {
   const AdminSuratScreen({super.key});
@@ -134,21 +135,51 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Arsip Surat Masuk'),
-        backgroundColor: AppColors.primaryDark,
-        automaticallyImplyLeading: false,
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorColor: AppColors.gold,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(
+        title: const Text(
+          'Arsip Surat Masuk',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
           ),
-          tabs: _kategoriFilters.map((f) => Tab(text: f)).toList(),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF475569),
+            size: 20,
+          ),
+          onPressed: () {
+            NavigationService.goHomeAdmin?.call();
+          },
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabCtrl,
+              indicatorColor: const Color(0xFFF59E0B),
+              indicatorWeight: 3,
+              labelColor: const Color(0xFFF59E0B),
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+              tabs: _kategoriFilters.map((f) => Tab(text: f)).toList(),
+            ),
+          ),
         ),
       ),
       body: Column(
@@ -206,7 +237,7 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _tambahArsip(context),
-        backgroundColor: AppColors.primaryDark,
+        backgroundColor: const Color(0xFFF59E0B),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
           'Tambah Arsip',
@@ -305,12 +336,12 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
               Icons.mail_outline_rounded,
-              color: AppColors.primary,
+              color: Color(0xFFF59E0B),
               size: 22,
             ),
           ),

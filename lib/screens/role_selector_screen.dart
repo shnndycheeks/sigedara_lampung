@@ -198,25 +198,11 @@ class _RoleSelectorScreenState extends State<RoleSelectorScreen>
                           position: _slideTop,
                           child: Column(
                             children: [
-                              Container(
+                              SizedBox(
                                 width: 280,
-                                height: 90,
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.08,
-                                      ),
-                                      blurRadius: 24,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
+                                height: 95,
                                 child: Image.asset(
-                                  'assets/images/logo_biro_umum.png',
+                                  'assets/images/logo_biro_noBG.png',
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -224,7 +210,7 @@ class _RoleSelectorScreenState extends State<RoleSelectorScreen>
                               const SizedBox(height: 12),
 
                               const Text(
-                                'Sigedara Lampung',
+                                'SIMASTER Lampung',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontFamily: 'Poppins',

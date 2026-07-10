@@ -68,7 +68,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFFD97706).withValues(alpha: 0.03), // Spotlight amber sangat tipis
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.03), // Spotlight amber sangat tipis
               ),
             ),
           ),
@@ -85,57 +85,326 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             physics: const BouncingScrollPhysics(),
             slivers: [
               // ── Header ────────────────────────────────────────────────────────
-              SliverAppBar(
-                expandedHeight: 200,
-                pinned: true,
-                elevation: 0,
-                backgroundColor: const Color(0xFFCA8A04), // Warna header saat collapse (Yellow 600)
-                automaticallyImplyLeading: false,
-                actions: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.report_problem_outlined,
-                      color: Colors.white,
-                      size: 24,
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Top Logo & Actions Bar ─────────────────────────────────────
+                        Row(
+                          children: [
+                            Image.asset(
+                              'assets/images/logo_lampung.png',
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.contain,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'SIMASTER LAMPUNG',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'Biro Umum',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Search Button Container
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.03),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                                border: Border.all(color: const Color(0xFFF1F5F9)),
+                              ),
+                              child: Center(
+                                child: IconButton(
+                                  icon: const Icon(Icons.search, size: 20, color: Color(0xFF475569)),
+                                  onPressed: () {},
+                                  padding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            // Bell Notification Button Container
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.03),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                                  ),
+                                  child: Center(
+                                    child: IconButton(
+                                      icon: const Icon(Icons.notifications_none_outlined, size: 20, color: Color(0xFF475569)),
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const NotifikasiScreen(),
+                                        ),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: -2,
+                                  right: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFF59E0B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '3',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ── Welcome & Weather Card ─────────────────────────────────────
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 16,
+                                offset: const Offset(0, 8),
+                              ),
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.01),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                          ),
+                          child: Row(
+                            children: [
+                              // Left section (greet, admin profile name, date)
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFFFEF9C3),
+                                        border: Border.all(color: const Color(0xFFFDE047), width: 1.5),
+                                      ),
+                                      child: ClipOval(
+                                        child: Image.network(
+                                          'https://avatar.iran.liara.run/public/33',
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.person,
+                                              color: Color(0xFFCA8A04),
+                                              size: 28,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Selamat datang kembali,',
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF64748B),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              const Text(
+                                                'Admin',
+                                                style: TextStyle(
+                                                  fontFamily: 'Poppins',
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF0F172A),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 5,
+                                                  vertical: 1.5,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFEF3C7),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                  border: Border.all(
+                                                    color: const Color(0xFFFDE68A),
+                                                    width: 0.8,
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'ADMIN',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontSize: 8,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFFF59E0B),
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.calendar_today_outlined,
+                                                size: 12,
+                                                color: Color(0xFF64748B),
+                                              ),
+                                              const SizedBox(width: 5),
+                                              const Text(
+                                                'Rabu, 9 April 2026',
+                                                style: TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF64748B),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Vertical Divider
+                              Container(
+                                width: 1,
+                                height: 56,
+                                color: const Color(0xFFE2E8F0),
+                                margin: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                              // Right section (weather info, fixed width)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.wb_sunny_rounded,
+                                        color: Colors.amber[600],
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Text(
+                                        'Cuaca Cerah',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    '28°C',
+                                    style: TextStyle(
+                                      fontFamily: 'Poppins',
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0F172A),
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Bandar Lampung',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    tooltip: 'Laporan Kerusakan',
-                    onPressed: () => NavigationService.goToTabAdmin?.call(4),
                   ),
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotifikasiScreen(),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.warning,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 4),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  collapseMode: CollapseMode.parallax,
-                  background: _HeaderBackground(),
                 ),
               ),
 
@@ -160,9 +429,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
+                            padding: EdgeInsets.zero,
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            childAspectRatio: 1.6,
+                            childAspectRatio: 1.48,
                             children: [
                               _StatCard(
                                 icon: Icons.pending_actions_rounded,
@@ -200,7 +470,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 icon: Icons.inventory_2_rounded,
                                 label: 'Aset Aktif',
                                 value: '47',
-                                color: const Color(0xFFCA8A04), // Gold/Yellow
+                                color: const Color(0xFF8B5CF6),
                                 trend: '3 baru',
                                 onTap: () =>
                                     NavigationService.goToTabAdmin?.call(3),
@@ -236,6 +506,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               Expanded(
                                 child: _ViewAllButton(
                                   label: 'Lihat Semua Permintaan',
+                                  color: const Color(0xFFF59E0B),
                                   onTap: () =>
                                       NavigationService.goToTabAdmin?.call(1),
                                 ),
@@ -244,8 +515,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               Expanded(
                                 child: _ViewAllButton(
                                   label: 'Proses Persetujuan',
-                                  color: AppColors.warning,
-                                  icon: Icons.task_alt_rounded,
+                                  color: const Color(0xFFD97706),
+                                  filled: true,
+                                  icon: Icons.check_circle_outline_rounded,
                                   onTap: () => Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -347,214 +619,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   ];
 }
 
-// ── Header Background ─────────────────────────────────────────────────────────
-class _HeaderBackground extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFFD97706), // Amber 600
-            Color(0xFFCA8A04), // Yellow 600
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Stack(
-        children: [
-          // Decorative circles
-          Positioned(
-            top: -30,
-            right: -30,
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -20,
-            left: -20,
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 60,
-            right: 80,
-            child: Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.05),
-              ),
-            ),
-          ),
-          // Content
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Avatar
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              AppColors.gold,
-                              AppColors.gold.withValues(alpha: 0.7),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.gold.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.admin_panel_settings_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  'Panel Admin',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(
-                                      alpha: 0.2,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      width: 0.8,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'ADMIN',
-                                    style: TextStyle(
-                                      fontFamily: 'Poppins',
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'SIGEDARA LAMPUNG — Biro Umum',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  // Date & greeting bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.wb_sunny_rounded,
-                          color: AppColors.gold.withValues(alpha: 0.9),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Selamat datang kembali, Admin',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Rabu, 9 April 2026',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── Section Label ─────────────────────────────────────────────────────────────
 class _SectionLabel extends StatelessWidget {
   final String title;
@@ -569,10 +633,10 @@ class _SectionLabel extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: AppColors.primaryDark.withValues(alpha: 0.08),
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, size: 17, color: AppColors.primaryDark),
+          child: Icon(icon, size: 17, color: const Color(0xFFF59E0B)),
         ),
         const SizedBox(width: 10),
         Text(title, style: AppTextStyles.h3),
@@ -592,67 +656,93 @@ class _BadgeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 14,
+            color: color,
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── View All Button ───────────────────────────────────────────────────────────
 class _ViewAllButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final Color? color;
   final IconData? icon;
+  final bool filled;
+
   const _ViewAllButton({
     required this.label,
     required this.onTap,
     this.color,
     this.icon,
+    this.filled = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? AppColors.primaryDark;
+    final c = color ?? const Color(0xFFF59E0B); // Default to orange/gold
+    final textColor = filled ? Colors.white : c;
+    final bgColor = filled ? c : c.withValues(alpha: 0.05);
+    final borderColor = filled ? c : c.withValues(alpha: 0.25);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: c.withValues(alpha: 0.20)),
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+          boxShadow: filled
+              ? [
+                  BoxShadow(
+                    color: c.withValues(alpha: 0.24),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              Icon(icon, size: 14, color: c),
-              const SizedBox(width: 5),
+              Icon(icon, size: 16, color: textColor),
+              const SizedBox(width: 6),
             ],
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Poppins',
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: c,
+                fontWeight: FontWeight.w700,
+                color: textColor,
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_forward_ios_rounded, size: 11, color: c),
+            Icon(Icons.chevron_right_rounded, size: 14, color: textColor),
           ],
         ),
       ),
@@ -717,108 +807,109 @@ class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixi
       child: ScaleTransition(
         scale: _scaleAnim,
         child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withValues(alpha: 0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-            const BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
-          border: Border.all(color: widget.color.withValues(alpha: 0.12)),
-        ),
-        child: Stack(
-          children: [
-            // Accent stripe
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              child: Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  color: widget.color,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    bottomLeft: Radius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.01),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(color: widget.color.withValues(alpha: 0.1)),
+          ),
+          child: Stack(
+            children: [
+              // Accent Background Glow Circle
+              Positioned(
+                top: -15,
+                right: -15,
+                child: Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.color.withValues(alpha: 0.05),
                   ),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: widget.color.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: widget.color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(widget.icon, color: widget.color, size: 18),
                         ),
-                        child: Icon(widget.icon, color: widget.color, size: 18),
+                        Text(
+                          widget.value,
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: widget.color,
+                            height: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.label,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                        height: 1.2,
                       ),
-                      Text(
-                        widget.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: widget.color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: widget.color.withValues(alpha: 0.12)),
+                      ),
+                      child: Text(
+                        widget.trend,
                         style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Inter',
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
                           color: widget.color,
-                          height: 1,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.label,
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                      height: 1.3,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: widget.color.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      widget.trend,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: widget.color,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -837,90 +928,116 @@ class _PendingTile extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.015),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                // Left accent
-                Container(width: 4, color: AppColors.warning),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              // Icon container
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7), // Amber 100
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isGedung
+                      ? Icons.apartment_rounded
+                      : Icons.directions_car_rounded,
+                  color: const Color(0xFFF59E0B), // Amber 500
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Text Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['nama'] as String,
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      data['jenis'] as String,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: AppColors.warning.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            isGedung
-                                ? Icons.business_rounded
-                                : Icons.directions_car_rounded,
-                            color: AppColors.warning,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                data['nama'] as String,
-                                style: AppTextStyles.h4,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                data['jenis'] as String,
-                                style: AppTextStyles.bodySmall,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 10,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    data['tgl'] as String,
-                                    style: AppTextStyles.caption,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
                         const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.textHint,
-                          size: 20,
+                          Icons.calendar_today_outlined,
+                          size: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          data['tgl'] as String,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+              // Status Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7), // Amber 100
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: const Color(0xFFFDE68A), // Amber 200
+                    width: 0.8,
                   ),
                 ),
-              ],
-            ),
+                child: const Text(
+                  'Menunggu',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFF59E0B), // Amber 500
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF94A3B8),
+                size: 20,
+              ),
+            ],
           ),
         ),
       ),
@@ -928,7 +1045,6 @@ class _PendingTile extends StatelessWidget {
   }
 }
 
-// ── Activity Tile ─────────────────────────────────────────────────────────────
 class _ActivityTile extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool isLast;
@@ -937,54 +1053,94 @@ class _ActivityTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = data['color'] as Color;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline indicator
-          Column(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: color.withValues(alpha: 0.2)),
-                ),
-                child: Icon(data['icon'] as IconData, color: color, size: 18),
+    
+    // Map icons to simple timeline versions
+    IconData displayIcon = data['icon'] as IconData;
+    if (displayIcon == Icons.check_circle_rounded) {
+      displayIcon = Icons.check;
+    } else if (displayIcon == Icons.cancel_rounded) {
+      displayIcon = Icons.close;
+    } else if (displayIcon == Icons.edit_rounded) {
+      displayIcon = Icons.edit;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline indicator
+        Column(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.15),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              if (!isLast)
-                Container(
-                  width: 1.5,
-                  height: 20,
-                  margin: const EdgeInsets.only(top: 4),
-                  color: AppColors.divider,
+              child: Icon(displayIcon, color: Colors.white, size: 16),
+            ),
+            if (!isLast)
+              Container(
+                width: 1.5,
+                height: 32,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                color: const Color(0xFFE2E8F0),
+              ),
+          ],
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 2),
+              Text(
+                data['action'] as String,
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
                 ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                data['detail'] as String,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(data['action'] as String, style: AppTextStyles.h4),
-                const SizedBox(height: 2),
-                Text(data['detail'] as String, style: AppTextStyles.bodySmall),
-              ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: color.withValues(alpha: 0.15), width: 0.8),
+          ),
+          child: Text(
+            data['time'] as String,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: color,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(data['time'] as String, style: AppTextStyles.caption),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1008,9 +1164,10 @@ class _SkeletonDashboard extends StatelessWidget {
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
+            padding: EdgeInsets.zero,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            childAspectRatio: 1.6,
+            childAspectRatio: 1.48,
             children: List.generate(4, (_) => _SkeletonBox()),
           ),
           const SizedBox(height: 24),

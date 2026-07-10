@@ -119,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
                           child: Text(
-                            'SIGEDARA LAMPUNG',
+                            'SIMASTER LAMPUNG',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 28,
@@ -153,7 +153,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   child: Column(
                     children: [
                       const Text(
-                        'SIGEDARA LAMPUNG',
+                        'SIMASTER LAMPUNG',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontFamily: 'Poppins',
@@ -251,7 +251,7 @@ class _SplashScreenState extends State<SplashScreen> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'v1.0.0 — SIGEDARA Lampung',
+                        'v1.0.0 — SIMASTER Lampung',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 11,

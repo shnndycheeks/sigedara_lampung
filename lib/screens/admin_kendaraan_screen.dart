@@ -122,22 +122,23 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
         title: const Text(
           'Manajemen Kendaraan',
           style: TextStyle(
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: AdminColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(22)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
         ),
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: Color(0xFF475569),
             size: 20,
           ),
           onPressed: () {
@@ -146,7 +147,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFFF59E0B)),
             onPressed: () => _showAddEditDialog(context, null),
             tooltip: 'Tambah Kendaraan',
           ),
@@ -261,12 +262,12 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: _filterIndex == i
-                          ? AppColors.primaryDark
+                          ? const Color(0xFFF59E0B)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: _filterIndex == i
-                            ? AppColors.primaryDark
+                            ? const Color(0xFFF59E0B)
                             : AppColors.divider,
                       ),
                     ),
@@ -586,7 +587,7 @@ class _AdminKendaraanTile extends StatelessWidget {
                 icon: const Icon(
                   Icons.edit_outlined,
                   size: 20,
-                  color: AppColors.primary,
+                  color: Color(0xFFF59E0B),
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

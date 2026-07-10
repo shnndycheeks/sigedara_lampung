@@ -96,21 +96,21 @@ class AdminShellState extends State<AdminShell> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _AdminNavItem(
-                    icon: Icons.dashboard_outlined,
-                    activeIcon: Icons.dashboard,
+                    icon: Icons.home_outlined,
+                    activeIcon: Icons.home,
                     label: 'Dashboard',
                     index: 0,
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
                   _AdminNavItem(
-                    icon: Icons.meeting_room_outlined,
-                    activeIcon: Icons.meeting_room,
+                    icon: Icons.assignment_outlined,
+                    activeIcon: Icons.assignment,
                     label: 'Peminjaman',
                     index: 1,
                     current: _currentIndex,
@@ -142,8 +142,8 @@ class AdminShellState extends State<AdminShell> {
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
                   _AdminNavItem(
-                    icon: Icons.manage_accounts_outlined,
-                    activeIcon: Icons.manage_accounts,
+                    icon: Icons.person_outline,
+                    activeIcon: Icons.person,
                     label: 'Profil',
                     index: 5,
                     current: _currentIndex,
@@ -181,64 +181,71 @@ class _AdminNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool active = index == current;
-    return GestureDetector(
-      onTap: () => onTap(index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.gold.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  active ? activeIcon : icon,
-                  color: active ? AppColors.gold : AppColors.textHint,
-                  size: 24,
-                ),
-                if (badge > 0)
-                  Positioned(
-                    top: -4,
-                    right: -6,
-                    child: Container(
-                      width: 16,
-                      height: 16,
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          '$badge',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onTap(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(horizontal: active ? 6 : 2, vertical: 6),
+          decoration: BoxDecoration(
+            color: active
+                ? const Color(0xFFF59E0B).withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    active ? activeIcon : icon,
+                    color: active ? const Color(0xFFF59E0B) : AppColors.textHint,
+                    size: 22,
+                  ),
+                  if (badge > 0)
+                    Positioned(
+                      top: -4,
+                      right: -6,
+                      child: Container(
+                        width: 15,
+                        height: 15,
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '$badge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 10,
-                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                color: active ? AppColors.gold : AppColors.textHint,
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 9,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  color: active ? const Color(0xFFF59E0B) : AppColors.textHint,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

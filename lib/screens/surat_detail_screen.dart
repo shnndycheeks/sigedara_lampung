@@ -442,7 +442,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Setelah tombol Kirim ke WhatsApp Kepala Biro ditekan, proses disposisi selanjutnya dilakukan melalui WhatsApp dan Google Form.\n\nSistem SIGEDARA hanya digunakan sebagai media pengarsipan surat masuk.',
+                                'Setelah tombol Kirim ke WhatsApp Kepala Biro ditekan, proses disposisi selanjutnya dilakukan melalui WhatsApp dan Google Form.\n\nSistem SIMASTER hanya digunakan sebagai media pengarsipan surat masuk.',
                                 style: AppTextStyles.bodySmall.copyWith(
                                   color: AppColors.textSecondary,
                                   height: 1.4,

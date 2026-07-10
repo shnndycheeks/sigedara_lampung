@@ -24,144 +24,154 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 210,
-            pinned: true,
-            automaticallyImplyLeading: false,
-            backgroundColor: AdminColors.primary,
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-              onPressed: () {
-                NavigationService.goHomeAdmin?.call();
-              },
+      appBar: AppBar(
+        title: const Text(
+          'Profil Admin',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shape: const Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+        ),
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF475569),
+            size: 20,
+          ),
+          onPressed: () {
+            NavigationService.goHomeAdmin?.call();
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.notifications_outlined,
+              color: Color(0xFF475569),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.notifications_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotifikasiScreen()),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Colors.white),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PengaturanScreen()),
-                ),
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AdminColors.primaryDark, const Color(0xFF854D0E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotifikasiScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Color(0xFF475569)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PengaturanScreen(isAdmin: true)),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // Profile Header Card (White background with gold elements)
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                children: [
+                  Stack(
+                    alignment: Alignment.bottomRight,
                     children: [
-                      const SizedBox(height: 40),
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.gold,
-                                width: 3,
-                              ),
-                              color: AppColors.gold.withValues(alpha: 0.2),
-                            ),
-                            child: const Icon(
-                              Icons.admin_panel_settings,
-                              color: AppColors.gold,
-                              size: 38,
-                            ),
-                          ),
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: AppColors.gold,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt,
-                              size: 12,
-                              color: AppColors.primaryDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Admin Sistem',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
+                        width: 90,
+                        height: 90,
                         decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppColors.gold.withValues(alpha: 0.4),
+                            color: const Color(0xFFFCD34D),
+                            width: 3,
                           ),
+                          color: const Color(0xFFFEF9C3),
                         ),
-                        child: const Text(
-                          'ADMINISTRATOR',
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.gold,
-                            letterSpacing: 1.5,
+                        child: ClipOval(
+                          child: Image.network(
+                            'https://avatar.iran.liara.run/public/33',
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(
+                                Icons.person,
+                                color: Color(0xFFF59E0B),
+                                size: 40,
+                              );
+                            },
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Biro Umum Setda Prov. Lampung',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.65),
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          size: 13,
+                          color: Colors.white,
                         ),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Admin Sistem',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFFFDE68A),
+                      ),
+                    ),
+                    child: const Text(
+                      'ADMINISTRATOR',
+                      style: TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFF59E0B),
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Biro Umum Setda Prov. Lampung',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
+            Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,8 +347,8 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -381,10 +391,10 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.account_balance, size: 48, color: AppColors.primary),
+            Icon(Icons.account_balance, size: 48, color: Color(0xFFD97706)),
             SizedBox(height: 12),
             Text(
-              'SIGEDARA LAMPUNG',
+              'SIMASTER LAMPUNG',
               style: AppTextStyles.h2,
               textAlign: TextAlign.center,
             ),
@@ -441,7 +451,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryDark,
+              backgroundColor: const Color(0xFFD97706),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -558,7 +568,7 @@ class _SwitchRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: AppColors.gold,
+            activeThumbColor: const Color(0xFFF59E0B),
           ),
         ],
       ),

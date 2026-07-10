@@ -198,41 +198,52 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
         title: const Text(
           'Manajemen Aset',
           style: TextStyle(
-            color: Colors.white,
+            color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        backgroundColor: AdminColors.primary,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         automaticallyImplyLeading: false,
-        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: Color(0xFF475569),
             size: 20,
           ),
           onPressed: () {
             widget.onBack?.call();
           },
         ),
-        bottom: TabBar(
-          controller: _tab,
-          indicatorColor: AppColors.gold,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Container(
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+              ),
+            ),
+            child: TabBar(
+              controller: _tab,
+              indicatorColor: const Color(0xFFF59E0B),
+              indicatorWeight: 3,
+              labelColor: const Color(0xFFF59E0B),
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+              tabs: const [
+                Tab(text: 'Inventaris'),
+                Tab(text: 'Ringkasan'),
+                Tab(text: 'Laporan'),
+              ],
+            ),
           ),
-          tabs: const [
-            Tab(text: 'Inventaris'),
-            Tab(text: 'Ringkasan'),
-            Tab(text: 'Laporan'),
-          ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -416,7 +427,7 @@ class _AdminAsetScreenState extends State<AdminAsetScreen>
                   child: _SummaryCell(
                     value: '$_totalAset',
                     label: 'Total Aset',
-                    color: AppColors.primary,
+                    color: const Color(0xFFF59E0B),
                   ),
                 ),
                 Expanded(
@@ -930,12 +941,12 @@ class _AdminAsetTile extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.08),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               _kategoriIcon(kategori),
-              color: AppColors.primary,
+              color: const Color(0xFFF59E0B),
               size: 24,
             ),
           ),
@@ -974,7 +985,7 @@ class _AdminAsetTile extends StatelessWidget {
                 icon: const Icon(
                   Icons.edit_outlined,
                   size: 20,
-                  color: AppColors.primary,
+                  color: Color(0xFFF59E0B),
                 ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1035,7 +1046,7 @@ class _CategoryBar extends StatelessWidget {
     required this.kategori,
     required this.count,
     required this.total,
-    this.color = AppColors.primary,
+    this.color = const Color(0xFFF59E0B),
   });
 
   @override

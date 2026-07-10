@@ -41,8 +41,8 @@ class AppNotificationService {
   }) async {
     const androidDetails =
         AndroidNotificationDetails(
-      'sigedara_channel',
-      'SIGEDARA Notification',
+      'simaster_channel',
+      'SIMASTER Notification',
       importance: Importance.max,
       priority: Priority.high,
     );

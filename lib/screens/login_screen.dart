@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen>
 
       await AppNotificationService.showNotification(
         title: 'Login Berhasil',
-        body: 'Selamat datang di SIGEDARA',
+        body: 'Selamat datang di SIMASTER',
       );
 
       // SIMPAN STATUS INGAT SAYA
@@ -331,23 +331,11 @@ class _LoginScreenState extends State<LoginScreen>
 
                             const SizedBox(height: 6),
 
-                            Container(
+                            SizedBox(
                               width: 280,
-                              height: 90,
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
+                              height: 95,
                               child: Image.asset(
-                                'assets/images/logo_biro_umum.png',
+                                'assets/images/logo_biro_noBG.png',
                                 fit: BoxFit.contain,
                               ),
                             ),
@@ -355,7 +343,7 @@ class _LoginScreenState extends State<LoginScreen>
                             const SizedBox(height: 12),
 
                             const Text(
-                              'Sigedara Lampung',
+                              'SIMASTER Lampung',
                               style: TextStyle(
                                 fontFamily: 'Poppins',
                                 fontSize: 20,

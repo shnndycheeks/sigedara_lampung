@@ -420,18 +420,18 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
                     ),
                     decoration: BoxDecoration(
                       color: _filterIndex == i
-                          ? AppColors.primaryDark
+                          ? const Color(0xFFF59E0B)
                           : AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: _filterIndex == i
-                            ? AppColors.primaryDark
+                            ? const Color(0xFFF59E0B)
                             : AppColors.divider,
                       ),
                       boxShadow: _filterIndex == i
                           ? [
                               BoxShadow(
-                                color: AppColors.primaryDark.withValues(
+                                color: const Color(0xFFF59E0B).withValues(
                                   alpha: 0.3,
                                 ),
                                 blurRadius: 8,
@@ -607,12 +607,12 @@ class _PersetujuanTile extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.person,
-                  color: AppColors.primary,
+                  color: Color(0xFFF59E0B),
                   size: 20,
                 ),
               ),
@@ -719,7 +719,7 @@ class _InfoRow extends StatelessWidget {
 
   Color _iconColor() {
     if (icon == Icons.calendar_today_outlined) {
-      return AppColors.primaryDark;
+      return const Color(0xFFF59E0B);
     }
 
     return AppColors.textSecondary;

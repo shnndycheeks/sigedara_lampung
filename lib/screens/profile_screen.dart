@@ -574,7 +574,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 24),
 
                           Text(
-                            'SIGEDARA LAMPUNG v1.0.0\nBiro Umum Setda Provinsi Lampung',
+                            'SIMASTER LAMPUNG v1.0.0\nBiro Umum Setda Provinsi Lampung',
                             style: AppTextStyles.caption.copyWith(height: 1.8),
                             textAlign: TextAlign.center,
                           ),
@@ -748,7 +748,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text('SIGEDARA LAMPUNG', style: AppTextStyles.h3),
+            const Text('SIMASTER LAMPUNG', style: AppTextStyles.h3),
             const Text('Versi 1.0.0', style: AppTextStyles.caption),
             const SizedBox(height: 8),
             const Text(

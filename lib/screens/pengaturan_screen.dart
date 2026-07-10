@@ -3,7 +3,8 @@ import '../theme/app_theme.dart';
 import '../services/theme_service.dart';
 
 class PengaturanScreen extends StatefulWidget {
-  const PengaturanScreen({super.key});
+  final bool isAdmin;
+  const PengaturanScreen({super.key, this.isAdmin = false});
 
   @override
   State<PengaturanScreen> createState() => _PengaturanScreenState();
@@ -54,38 +55,59 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context),
+    final primaryColor = widget.isAdmin ? const Color(0xFFF59E0B) : AppColors.primary;
+    final primaryDark = widget.isAdmin ? const Color(0xFFD97706) : AppColors.primaryDark;
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        primaryColor: primaryColor,
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          primary: primaryColor,
         ),
-        title: const Text(
-          'Pengaturan',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: widget.isAdmin ? Colors.white : AppColors.primary,
+          foregroundColor: widget.isAdmin ? const Color(0xFF0F172A) : Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          shape: widget.isAdmin
+              ? const Border(
+                  bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+                )
+              : null,
+          leading: IconButton(
+            icon: Icon(
+              Icons.arrow_back_ios_new_rounded,
+              size: 20,
+              color: widget.isAdmin ? const Color(0xFF475569) : Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _resetSemuaPengaturan,
-            child: const Text(
-              'Reset',
-              style: TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 13,
-                color: Colors.white70,
-              ),
+          title: Text(
+            'Pengaturan',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: widget.isAdmin ? const Color(0xFF0F172A) : Colors.white,
             ),
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: _resetSemuaPengaturan,
+              child: Text(
+                'Reset',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 13,
+                  color: widget.isAdmin ? const Color(0xFF475569) : Colors.white70,
+                ),
+              ),
+            ),
+          ],
+        ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         children: [
@@ -93,7 +115,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           _SectionHeader(
             icon: Icons.palette_outlined,
             title: 'Tampilan',
-            color: AppColors.primary,
+            color: primaryColor,
           ),
           _SettingCard(
             children: [
@@ -138,7 +160,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
             children: [
               _SwitchTile(
                 icon: Icons.business_center_outlined,
-                iconColor: AppColors.primary,
+                iconColor: primaryColor,
                 title: 'Notifikasi Peminjaman',
                 subtitle: 'Status pengajuan dan persetujuan',
                 value: _notifPeminjaman,
@@ -201,13 +223,19 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
               const _Divider(),
               _DropdownTile(
                 icon: Icons.schedule_outlined,
-                iconColor: AppColors.textSecondary,
-                title: 'Waktu Ringkasan Harian',
+                iconColor: const Color(0xFF8B5CF6),
+                title: 'Jadwal Ringkasan',
                 value: _waktuRingkasan,
                 items: _waktuRingkasanList.map((e) => e['value']!).toList(),
                 labels: _waktuRingkasanList.map((e) => e['label']!).toList(),
                 onChanged: (v) {
-                  if (v != null) setState(() => _waktuRingkasan = v);
+                  if (v != null) {
+                    setState(() => _waktuRingkasan = v);
+                    _showSnackbar(
+                      context,
+                      'Jadwal Ringkasan diubah ke ${v.toLowerCase()}',
+                    );
+                  }
                 },
               ),
             ],
@@ -216,23 +244,23 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
 
           // ── PRIVASI & KEAMANAN ────────────────────────────
           _SectionHeader(
-            icon: Icons.security_outlined,
+            icon: Icons.shield_outlined,
             title: 'Privasi & Keamanan',
-            color: const Color(0xFF7C3AED),
+            color: const Color(0xFF10B981),
           ),
           _SettingCard(
             children: [
               _SwitchTile(
-                icon: Icons.fingerprint,
-                iconColor: const Color(0xFF7C3AED),
-                title: 'Login Biometrik',
-                subtitle: 'Gunakan sidik jari untuk masuk aplikasi',
+                icon: Icons.fingerprint_outlined,
+                iconColor: const Color(0xFF10B981),
+                title: 'Autentikasi Biometrik',
+                subtitle: 'Gunakan sidik jari atau Face ID untuk masuk',
                 value: _biometrik,
                 onChanged: (v) {
                   setState(() => _biometrik = v);
                   _showSnackbar(
                     context,
-                    'Login Biometrik ${v ? 'diaktifkan' : 'dinonaktifkan'}',
+                    'Autentikasi Biometrik ${v ? 'aktif' : 'nonaktif'}',
                   );
                 },
               ),
@@ -241,20 +269,29 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                 icon: Icons.visibility_off_outlined,
                 iconColor: AppColors.textSecondary,
                 title: 'Sembunyikan NIP',
-                subtitle: 'Tampilkan sebagian NIP di profil',
+                subtitle: 'Jangan tampilkan NIP di profil publik',
                 value: _sembunyikanNIP,
-                onChanged: (v) => setState(() => _sembunyikanNIP = v),
+                onChanged: (v) {
+                  setState(() => _sembunyikanNIP = v);
+                  _showSnackbar(
+                    context,
+                    'NIP sekarang ${v ? 'disembunyikan' : 'ditampilkan'}',
+                  );
+                },
               ),
               const _Divider(),
               _DropdownTile(
-                icon: Icons.timer_off_outlined,
+                icon: Icons.timer_outlined,
                 iconColor: AppColors.error,
                 title: 'Auto Logout',
                 value: _autoLogout,
                 items: _opsiAutoLogout,
                 labels: _opsiAutoLogout,
                 onChanged: (v) {
-                  if (v != null) setState(() => _autoLogout = v);
+                  if (v != null) {
+                    setState(() => _autoLogout = v);
+                    _showSnackbar(context, 'Auto Logout diubah ke $v');
+                  }
                 },
               ),
             ],
@@ -265,45 +302,49 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           _SectionHeader(
             icon: Icons.storage_outlined,
             title: 'Data & Penyimpanan',
-            color: const Color(0xFF059669),
+            color: const Color(0xFF6366F1),
           ),
           _SettingCard(
             children: [
               _SwitchTile(
                 icon: Icons.sync_outlined,
-                iconColor: const Color(0xFF059669),
+                iconColor: const Color(0xFF6366F1),
                 title: 'Sinkronisasi Otomatis',
-                subtitle: 'Perbarui data secara berkala di latar belakang',
+                subtitle: 'Sinkronkan data secara berkala',
                 value: _sinkronOtomatis,
-                onChanged: (v) => setState(() => _sinkronOtomatis = v),
+                onChanged: (v) {
+                  setState(() => _sinkronOtomatis = v);
+                  _showSnackbar(
+                    context,
+                    'Sinkronisasi Otomatis ${v ? 'aktif' : 'nonaktif'}',
+                  );
+                },
               ),
-              if (_sinkronOtomatis) ...[
-                const _Divider(),
-                _DropdownTile(
-                  icon: Icons.update_outlined,
-                  iconColor: AppColors.info,
-                  title: 'Interval Sinkronisasi',
-                  value: _intervalSinkron,
-                  items: _opsiIntervalSinkron,
-                  labels: _opsiIntervalSinkron,
-                  onChanged: (v) {
-                    if (v != null) setState(() => _intervalSinkron = v);
-                  },
-                ),
-              ],
+              const _Divider(),
+              _DropdownTile(
+                icon: Icons.restore_outlined,
+                iconColor: const Color(0xFFEC4899),
+                title: 'Interval Sinkronisasi',
+                value: _intervalSinkron,
+                items: _opsiIntervalSinkron,
+                labels: _opsiIntervalSinkron,
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _intervalSinkron = v);
+                    _showSnackbar(context, 'Interval Sinkron diubah ke $v');
+                  }
+                },
+              ),
               const _Divider(),
               _ActionTile(
-                icon: Icons.cleaning_services_outlined,
-                iconColor: AppColors.warning,
-                title: 'Hapus Cache',
-                subtitle: 'Bersihkan data sementara aplikasi',
-                trailing: const Text(
-                  '12,4 MB',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                  ),
+                icon: Icons.delete_sweep_outlined,
+                iconColor: AppColors.error,
+                title: 'Bersihkan Cache',
+                subtitle: 'Hapus file sementara (bebas 12.4 MB)',
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.textHint,
+                  size: 18,
                 ),
                 onTap: () => _showHapusCacheDialog(context),
               ),
@@ -311,19 +352,19 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           ),
           const SizedBox(height: 20),
 
-          // ── BAHASA ────────────────────────────────────────
+          // ── UMUM & LAINNYA ────────────────────────────────
           _SectionHeader(
-            icon: Icons.language_outlined,
-            title: 'Bahasa & Regional',
-            color: AppColors.info,
+            icon: Icons.settings_applications_outlined,
+            title: 'Umum & Lainnya',
+            color: const Color(0xFF64748B),
           ),
           _SettingCard(
             children: [
               _ActionTile(
-                icon: Icons.flag_outlined,
-                iconColor: const Color(0xFFDC2626),
-                title: 'Bahasa Aplikasi',
-                subtitle: 'Bahasa Indonesia',
+                icon: Icons.language_outlined,
+                iconColor: const Color(0xFF3B82F6),
+                title: 'Bahasa',
+                subtitle: 'Pilih bahasa aplikasi',
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -333,16 +374,16 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
+                        color: primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
+                      child: Text(
                         'ID',
                         style: TextStyle(
                           fontFamily: 'Poppins',
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primaryDark,
+                          color: primaryDark,
                         ),
                       ),
                     ),
@@ -358,34 +399,10 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
               ),
               const _Divider(),
               _ActionTile(
-                icon: Icons.calendar_today_outlined,
-                iconColor: AppColors.info,
-                title: 'Format Tanggal',
-                subtitle: 'dd MMMM yyyy (contoh: 13 April 2026)',
-                trailing: const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.textHint,
-                  size: 18,
-                ),
-                onTap: () => _showTidakTersedia(context, 'Format Tanggal'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ── TENTANG ───────────────────────────────────────
-          _SectionHeader(
-            icon: Icons.info_outline,
-            title: 'Tentang Aplikasi',
-            color: AppColors.textSecondary,
-          ),
-          _SettingCard(
-            children: [
-              _ActionTile(
                 icon: Icons.new_releases_outlined,
-                iconColor: AppColors.primary,
+                iconColor: primaryColor,
                 title: 'Versi Aplikasi',
-                subtitle: 'SIGEDARA LAMPUNG v1.0.0',
+                subtitle: 'SIMASTER LAMPUNG v1.0.0',
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -451,15 +468,16 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           const SizedBox(height: 32),
 
           Text(
-            'SIGEDARA LAMPUNG v1.0.0\nBiro Umum Setda Provinsi Lampung\n© 2026',
+            'SIMASTER LAMPUNG v1.0.0\nBiro Umum Setda Provinsi Lampung\n© 2026',
             style: AppTextStyles.caption.copyWith(height: 1.8),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   String _fontSizeLabel(double v) {
     if (v <= 0.85) return 'Kecil';
@@ -598,7 +616,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Aplikasi SIGEDARA LAMPUNG mengumpulkan data yang diperlukan untuk pengelolaan aset dan layanan internal Biro Umum Setda Provinsi Lampung.',
+                'Aplikasi SIMASTER LAMPUNG mengumpulkan data yang diperlukan untuk pengelolaan aset dan layanan internal Biro Umum Setda Provinsi Lampung.',
                 style: AppTextStyles.bodySmall,
               ),
               SizedBox(height: 10),
@@ -825,7 +843,7 @@ class _SwitchTile extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
+            activeThumbColor: Theme.of(context).primaryColor,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
         ],
@@ -888,7 +906,7 @@ class _SliderTile extends StatelessWidget {
             min: min,
             max: max,
             divisions: divisions,
-            activeColor: AppColors.primary,
+            activeColor: Theme.of(context).primaryColor,
             label: subtitle,
             onChanged: onChanged,
           ),
@@ -1038,7 +1056,7 @@ class _KontakItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 18, color: AppColors.primary),
+        Icon(icon, size: 18, color: Theme.of(context).primaryColor),
         const SizedBox(width: 10),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -174,15 +174,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                SliverAppBar(
-                  expandedHeight: 235,
-                  pinned: true,
-                  elevation: 0,
-                  backgroundColor: const Color(0xFF0284C7), // Menyesuaikan warna header saat collapse
-                  automaticallyImplyLeading: false,
-                  flexibleSpace: FlexibleSpaceBar(
-                    background: _buildHeader(),
-                  ),
+                SliverToBoxAdapter(
+                  child: _buildHeader(),
                 ),
                 SliverToBoxAdapter(
                   child: Padding(
@@ -199,219 +192,375 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF0284C7), // Rich sky blue
-            Color(0xFF1E40AF), // Deep royal blue
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Background biru
+        Container(
+          height: 150 + MediaQuery.of(context).padding.top,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Color(0xFF0284C7), // Rich sky blue
+                Color(0xFF1E40AF), // Deep royal blue
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(32),
+              bottomRight: Radius.circular(32),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -30,
+                right: -30,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -40,
+                left: -20,
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Stack(
-        children: [
-          // Lingkaran dekoratif putih transparan untuk kedalaman visual
-          Positioned(
-            top: -40,
-            right: -40,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            left: -30,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        // Konten header + Welcome Card
+        Padding(
+          padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 16, 16, 16),
+          child: Column(
+            children: [
+              // Logo & Action Row
+              Row(
                 children: [
-                  Row(
+                  Image.asset(
+                    'assets/images/logo_lampung.png',
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'SIMASTER LAMPUNG',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        Text(
+                          'Biro Umum',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Search Button
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: Center(
+                      child: IconButton(
+                        icon: const Icon(Icons.search, size: 20, color: Colors.white),
+                        onPressed: () => _showSearch(context),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Bell Notification Button Container
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      Image.asset(
-                        'assets/images/logo_lampung.png',
-                        height: 42,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 42,
-                          height: 42,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.image),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'SIMASTER',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: 1),
-                            Text(
-                              'Sistem Informasi Aset Daerah',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       Container(
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                         ),
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.search_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          onPressed: () => _showSearch(context),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.2),
+                        child: Center(
+                          child: IconButton(
+                            icon: const Icon(Icons.notifications_none_outlined, size: 20, color: Colors.white),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotifikasiScreen(),
                               ),
                             ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.notifications_none_rounded,
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF59E0B),
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '3',
+                              style: TextStyle(
                                 color: Colors.white,
-                                size: 20,
-                              ),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const NotifikasiScreen(),
-                                ),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                height: 1,
                               ),
                             ),
                           ),
-                          Positioned(
-                            top: 2,
-                            right: 2,
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.wb_sunny_rounded,
-                        color: Colors.orangeAccent,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Selamat $_salam,',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.85),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _namaUser,
-                    style: const TextStyle(
-                      fontFamily: 'Poppins',
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.1,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _unitUser,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.calendar_today_outlined,
-                        size: 13,
-                        color: Colors.white.withValues(alpha: 0.8),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _tanggalHariIni,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 20),
+
+              // Welcome & Weather Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(color: const Color(0xFFF1F5F9)),
+                ),
+                child: Row(
+                  children: [
+                    // Left section (greet, employee profile name, date)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFE0F2FE),
+                              border: Border.all(color: const Color(0xFFBAE6FD), width: 1.5),
+                            ),
+                            child: ClipOval(
+                              child: Image.network(
+                                'https://avatar.iran.liara.run/public/35',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.person,
+                                    color: Color(0xFF0284C7),
+                                    size: 28,
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Selamat $_salam,',
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _namaUser,
+                                        style: const TextStyle(
+                                          fontFamily: 'Poppins',
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1.5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE0F2FE),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: const Color(0xFFBAE6FD),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'PEGAWAI',
+                                        style: TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF0284C7),
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _unitUser,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 12,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _tanggalHariIni,
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Vertical Divider
+                    Container(
+                      width: 1,
+                      height: 56,
+                      color: const Color(0xFFE2E8F0),
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    // Right section (weather info, fixed width)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.wb_sunny_rounded,
+                              color: Colors.amber[600],
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Cuaca Cerah',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF475569),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '28°C',
+                          style: TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0F172A),
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Bandar Lampung',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -439,6 +588,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StatusAmanCard(
+          menungguPersetujuan: _menungguPersetujuan,
+          teksMenunggu: _teksMenunggu,
           onTap: () => NavigationService.goToTabUser?.call(1),
         ),
         const SizedBox(height: 22),
@@ -546,54 +697,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _StatusAmanCard extends StatelessWidget {
+  final int menungguPersetujuan;
+  final String teksMenunggu;
   final VoidCallback onTap;
-  const _StatusAmanCard({required this.onTap});
+
+  const _StatusAmanCard({
+    required this.menungguPersetujuan,
+    required this.teksMenunggu,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isAman = menungguPersetujuan == 0;
+    final bgColor = isAman
+        ? const Color(0xFFF0FDF4).withValues(alpha: 0.8)
+        : const Color(0xFFFFFBEB).withValues(alpha: 0.8);
+    final borderColor = isAman
+        ? const Color(0xFFDCFCE7).withValues(alpha: 0.8)
+        : const Color(0xFFFEF3C7).withValues(alpha: 0.8);
+    final iconColor = isAman ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
+    final iconData = isAman ? Icons.verified_user_rounded : Icons.pending_actions_rounded;
+    final title = isAman ? 'Status Aman' : 'Pengajuan Pending';
+    final titleColor = isAman ? const Color(0xFF15803D) : const Color(0xFFB45309);
+    final arrowColor = isAman ? const Color(0xFF15803D) : const Color(0xFFB45309);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4).withValues(alpha: 0.8), // Transparan
+          color: bgColor,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFDCFCE7).withValues(alpha: 0.8), width: 1.5), // Transparan
+          border: Border.all(color: borderColor, width: 1.5),
         ),
         child: Row(
           children: [
             Container(
               width: 40,
               height: 40,
-              decoration: const BoxDecoration(
-                color: Color(0xFF10B981), // Green 500
+              decoration: BoxDecoration(
+                color: iconColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.verified_user_rounded,
+              child: Icon(
+                iconData,
                 color: Colors.white,
                 size: 22,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Status Aman',
+                    title,
                     style: TextStyle(
                       fontFamily: 'Poppins',
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF15803D), // Green 700
+                      color: titleColor,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Semua pengajuan telah selesai dan tidak ada masalah.',
-                    style: TextStyle(
+                    teksMenunggu,
+                    style: const TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 11,
                       color: Color(0xFF475569), // Slate 600
@@ -602,9 +773,9 @@ class _StatusAmanCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
+            Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF15803D),
+              color: arrowColor,
               size: 24,
             ),
           ],
