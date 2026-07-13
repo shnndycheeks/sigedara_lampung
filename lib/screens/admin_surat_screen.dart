@@ -93,9 +93,9 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
 
   Color _getUrgensiColor(String urgensi) {
     switch (urgensi.toLowerCase()) {
-      case 'segera':
+      case 'sangat segera':
         return AppColors.error;
-      case 'penting':
+      case 'segera':
         return AppColors.warning;
       case 'biasa':
       default:

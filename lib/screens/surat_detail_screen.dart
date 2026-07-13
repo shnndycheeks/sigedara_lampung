@@ -25,12 +25,36 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
   late ArsipSurat _arsip;
   bool _loading = false;
   String? _signedUrl;
+  bool _anyEdit = false;
 
   @override
   void initState() {
     super.initState();
     _arsip = widget.surat;
-    _loadSignedUrl();
+    _refreshData();
+  }
+
+  Future<void> _refreshData() async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      final updated = await ArsipSuratService.getArsipById(_arsip.id);
+      if (mounted) {
+        setState(() {
+          _arsip = updated;
+          _loading = false;
+        });
+        await _loadSignedUrl();
+      }
+    } catch (e) {
+      debugPrint('Error refreshing detail: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadSignedUrl() async {
@@ -59,9 +83,22 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     final tanggal = _formatTanggal(_arsip.tanggalSurat);
     final perihal = _arsip.judul;
     final dari = _arsip.dari;
+
+    String fileUrl = _arsip.fileUrl;
+    if (_arsip.filePath.isNotEmpty) {
+      try {
+        final freshSignedUrl = await Supabase.instance.client.storage
+            .from('arsip-surat')
+            .createSignedUrl(_arsip.filePath, 604800); // 7 days expiration
+        fileUrl = freshSignedUrl;
+      } catch (e) {
+        debugPrint('Error generating fresh signed URL for WhatsApp: $e');
+        fileUrl = _signedUrl ?? _arsip.fileUrl;
+      }
+    }
     
     final message = "Assalamu'alaikum Wr. Wb.\n\n"
-        "Yth. Kepala Biro\n\n"
+        "Yth. Kepala Biro,\n\n"
         "Terdapat surat masuk baru yang memerlukan disposisi.\n\n"
         "━━━━━━━━━━━━━━\n\n"
         "Nomor Surat:\n$nomor\n\n"
@@ -69,7 +106,8 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
         "Asal Surat:\n$dari\n\n"
         "Tanggal Surat:\n$tanggal\n\n"
         "━━━━━━━━━━━━━━\n\n"
-        "Silakan melakukan disposisi melalui Google Form berikut:\n\n"
+        "📄 Surat:\n$fileUrl\n\n"
+        "Silakan membaca surat terlebih dahulu, kemudian lakukan disposisi melalui Google Form berikut:\n\n"
         "${SupabaseConfig.googleFormUrl}\n\n"
         "Terima kasih.";
 
@@ -161,9 +199,9 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
 
   Color _getUrgensiColor(String urgensi) {
     switch (urgensi.toLowerCase()) {
-      case 'segera':
+      case 'sangat segera':
         return AppColors.error;
-      case 'penting':
+      case 'segera':
         return AppColors.warning;
       case 'biasa':
       default:
@@ -190,18 +228,11 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     );
 
     if (result == true) {
-      setState(() {
-        _loading = true;
-      });
       try {
-        // Fetch updated list and find this item
-        final data = await ArsipSuratService.getSemuaArsip();
-        final updated = data.firstWhere((s) => s.id == _arsip.id);
+        await _refreshData();
         setState(() {
-          _arsip = updated;
-          _loading = false;
+          _anyEdit = true;
         });
-        await _loadSignedUrl();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -332,29 +363,35 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     final hasFile = _arsip.fileUrl.isNotEmpty;
     final isPdfFile = _isPdf(_arsip.fileUrl);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Detail Arsip Surat'),
-        backgroundColor: AppColors.primaryDark,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.pop(context, false),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pop(context, _anyEdit);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Detail Arsip Surat'),
+          backgroundColor: AppColors.primaryDark,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            onPressed: () => Navigator.pop(context, _anyEdit),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: _loading ? null : _editArsip,
+              tooltip: 'Edit Arsip',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded),
+              onPressed: _loading ? null : _hapusArsip,
+              tooltip: 'Hapus Arsip',
+            ),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: _loading ? null : _editArsip,
-            tooltip: 'Edit Arsip',
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: _loading ? null : _hapusArsip,
-            tooltip: 'Hapus Arsip',
-          ),
-        ],
-      ),
-      body: _loading
+        body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -528,6 +565,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                   const SizedBox(height: 12),
                   if (hasFile) ...[
                     Container(
+                      key: ValueKey(_signedUrl ?? _arsip.fileUrl),
                       height: 380,
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.divider),
@@ -555,6 +593,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                                   tag: 'arsip_image_${_arsip.id}',
                                   child: Image.network(
                                     _signedUrl ?? _arsip.fileUrl,
+                                    key: ValueKey(_signedUrl ?? _arsip.fileUrl),
                                     fit: BoxFit.contain,
                                     loadingBuilder: (context, child, loadingProgress) {
                                       if (loadingProgress == null) return child;
@@ -596,6 +635,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 

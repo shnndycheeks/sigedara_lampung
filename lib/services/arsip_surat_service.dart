@@ -21,6 +21,20 @@ class ArsipSuratService {
     }
   }
 
+  static Future<ArsipSurat> getArsipById(String id) async {
+    try {
+      final data = await _client
+          .from(_tableName)
+          .select()
+          .eq('id', id)
+          .single();
+
+      return ArsipSurat.fromJson(data);
+    } catch (e) {
+      throw Exception('Gagal memuat detail arsip surat: $e');
+    }
+  }
+
   static Future<void> tambahArsip({
     required String judul,
     required String kategori,
@@ -56,6 +70,7 @@ class ArsipSuratService {
     String? fileUrl,
     String? filePath,
     int? fileSize,
+    String? oldFilePathToDelete,
   }) async {
     try {
       final updateData = {
@@ -64,16 +79,35 @@ class ArsipSuratService {
         'deskripsi': deskripsi,
       };
 
-      if (fileUrl != null && filePath != null) {
+      if (fileUrl != null) {
         updateData['file_url'] = fileUrl;
+      }
+      if (filePath != null) {
         updateData['file_path'] = filePath;
-        if (fileSize != null) {
-          updateData['file_size'] = fileSize;
-        }
+      }
+      if (fileSize != null) {
+        updateData['file_size'] = fileSize;
       }
 
+      debugPrint('[LOG 6] Query UPDATE ke tabel arsip_surat akan dieksekusi:');
+      debugPrint('  - id: $id');
+      debugPrint('  - payload updateData: $updateData');
+
       await _client.from(_tableName).update(updateData).eq('id', id);
+
+      // Delete old file from storage if updated and requested
+      if (oldFilePathToDelete != null &&
+          oldFilePathToDelete.isNotEmpty &&
+          filePath != null &&
+          filePath != oldFilePathToDelete) {
+        try {
+          await _client.storage.from(_bucketName).remove([oldFilePathToDelete]);
+        } catch (storageError) {
+          debugPrint('Gagal menghapus berkas lama dari storage: $storageError');
+        }
+      }
     } catch (e) {
+      debugPrint('[LOG 6] Query UPDATE GAGAL: $e');
       throw Exception('Gagal memperbarui arsip surat: $e');
     }
   }
@@ -123,10 +157,12 @@ class ArsipSuratService {
     required String mimeType,
   }) async {
     try {
+      debugPrint('[LOG 3] Method upload berkas asli dipanggil: filename=$fileName, bytesLength=${fileBytes.length}, mimeType=$mimeType');
       // Create clean and unique file path
       final cleanExt = fileName.split('.').last.toLowerCase();
       final storagePath = 'surat_masuk_${DateTime.now().millisecondsSinceEpoch}.$cleanExt';
 
+      debugPrint('[LOG 4] Upload ke Supabase Storage dimulai: path=$storagePath');
       await _client.storage.from(_bucketName).uploadBinary(
             storagePath,
             fileBytes,
@@ -137,12 +173,14 @@ class ArsipSuratService {
           );
 
       final fileUrl = _client.storage.from(_bucketName).getPublicUrl(storagePath);
+      debugPrint('[LOG 4] Upload ke Supabase Storage berhasil: publicUrl=$fileUrl');
 
       return {
         'file_url': fileUrl,
         'file_path': storagePath,
       };
     } catch (e) {
+      debugPrint('[LOG 4] Upload ke Supabase Storage GAGAL: $e');
       throw Exception('Gagal mengunggah berkas ke storage: $e');
     }
   }

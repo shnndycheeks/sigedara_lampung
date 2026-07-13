@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
@@ -84,13 +85,31 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
 
     if (result != null && result.files.isNotEmpty) {
       final file = result.files.first;
+      Uint8List? bytes = file.bytes;
+      debugPrint('[LOG 1] PDF File Picked from FilePicker:');
+      debugPrint('  - name: ${file.name}');
+      debugPrint('  - path: ${file.path}');
+      debugPrint('  - size: ${file.size}');
+      if (bytes == null && file.path != null) {
+        try {
+          bytes = await File(file.path!).readAsBytes();
+          debugPrint('  - bytes read manually from path, length: ${bytes.length}');
+        } catch (e) {
+          debugPrint('  - Error reading picked file bytes: $e');
+        }
+      } else {
+        debugPrint('  - bytes length from picker: ${bytes?.length}');
+      }
+
       setState(() {
         _pickedFileName = file.name;
-        _pickedFileBytes = file.bytes;
+        _pickedFileBytes = bytes;
         _pickedFileSize = file.size;
         _pickedMimeType = 'application/pdf';
         _isImage = false;
       });
+    } else {
+      debugPrint('[LOG 1] FilePicker returned null (user cancelled).');
     }
   }
 
@@ -104,6 +123,12 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       final size = bytes.length;
+      debugPrint('[LOG 1] Image captured/picked via ImagePicker:');
+      debugPrint('  - name: ${image.name}');
+      debugPrint('  - path: ${image.path}');
+      debugPrint('  - size: $size');
+      debugPrint('  - bytes length: ${bytes.length}');
+
       setState(() {
         _pickedFileName = image.name;
         _pickedFileBytes = bytes;
@@ -111,6 +136,8 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         _pickedMimeType = image.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
         _isImage = true;
       });
+    } else {
+      debugPrint('[LOG 1] ImagePicker returned null (user cancelled).');
     }
   }
 
@@ -236,8 +263,16 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       String finalFilePath = widget.existing?.filePath ?? '';
       int? finalFileSize = widget.existing?.fileSize;
 
+      debugPrint('tambah_edit_surat_screen._simpan: initiating save flow.');
+      debugPrint('isEdit: $isEdit');
+      debugPrint('_pickedFileBytes exists: ${_pickedFileBytes != null}');
+      debugPrint('_pickedFileName: $_pickedFileName');
+      debugPrint('Original fileUrl: $finalFileUrl');
+      debugPrint('Original filePath: $finalFilePath');
+
       // 1. Upload new file only if selected
       if (_pickedFileBytes != null && _pickedFileName != null) {
+        debugPrint('[LOG 3] Pemanggilan upload berkas asli dimulai: file=$_pickedFileName');
         final uploadResult = await ArsipSuratService.uploadBerkasAsli(
           fileName: _pickedFileName!,
           fileBytes: _pickedFileBytes!,
@@ -246,10 +281,23 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         finalFileUrl = uploadResult['file_url']!;
         finalFilePath = uploadResult['file_path']!;
         finalFileSize = _pickedFileSize;
+        debugPrint('[LOG 5] file_url dan file_path berubah setelah upload:');
+        debugPrint('  - finalFileUrl: $finalFileUrl');
+        debugPrint('  - finalFilePath: $finalFilePath');
+      } else {
+        debugPrint('No new file lampiran selected, skipping upload.');
       }
 
       // 2. Save metadata to DB
       if (isEdit) {
+        final oldFilePath = widget.existing!.filePath;
+        final hasNewFile = _pickedFileBytes != null && _pickedFileName != null;
+
+        debugPrint('[LOG 2] Variabel file baru diteruskan ke ArsipSuratService:');
+        debugPrint('  - fileUrl: $finalFileUrl');
+        debugPrint('  - filePath: $finalFilePath');
+        debugPrint('  - hasNewFile (triggers deletion of old file): $hasNewFile ($oldFilePath)');
+
         await ArsipSuratService.updateArsip(
           id: widget.existing!.id,
           judul: judul,
@@ -258,6 +306,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
           fileUrl: finalFileUrl,
           filePath: finalFilePath,
           fileSize: finalFileSize,
+          oldFilePathToDelete: hasNewFile ? oldFilePath : null,
         );
       } else {
         await ArsipSuratService.tambahArsip(
@@ -288,12 +337,12 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
   }
 
   Color _getUrgensiColor(String urgensi) {
-    switch (urgensi) {
-      case 'Sangat Segera':
+    switch (urgensi.toLowerCase()) {
+      case 'sangat segera':
         return AppColors.error;
-      case 'Segera':
+      case 'segera':
         return AppColors.warning;
-      case 'Biasa':
+      case 'biasa':
       default:
         return AppColors.success;
     }
@@ -585,18 +634,30 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Visual File Type Indicator
-          if (_isImage && isLocal && _pickedFileBytes != null) ...[
+          if (_isImage) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                _pickedFileBytes!,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
+              child: isLocal && _pickedFileBytes != null
+                  ? Image.memory(
+                      _pickedFileBytes!,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : (widget.existing != null
+                      ? Image.network(
+                          widget.existing!.fileUrl,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Center(
+                            child: Icon(Icons.broken_image_outlined, size: 48, color: AppColors.textHint),
+                          ),
+                        )
+                      : const SizedBox.shrink()),
             ),
             const SizedBox(height: 16),
-          ] else if (!_isImage) ...[
+          ] else ...[
             Container(
               width: double.infinity,
               height: 120,

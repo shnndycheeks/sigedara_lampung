@@ -6,5 +6,5 @@ class SupabaseConfig {
       'sb_publishable_Exfmd5MHN5TImD7d9kO-xg_JkGY9Rz_';
 
   static const String googleFormUrl =
-      'https://docs.google.com/forms/d/e/1FAIpQLSdJqf4y6Hn2Y-T0pA4V6m2K12DUMMY_URL/viewform';
+      'https://docs.google.com/forms/d/e/1FAIpQLSeb91l5Oo-gETT5o4gajL2xiw51GSqyy46nHGsfzN0L-XPYKQ/viewform?usp=header';
 }
