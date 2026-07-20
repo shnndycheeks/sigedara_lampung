@@ -112,16 +112,6 @@ Widget build(BuildContext context) {
           size: 20,
         ),
         onPressed: () {
-          if (Navigator.canPop(context)) {
-            Navigator.pop(context);
-            return;
-          }
-
-          if (NavigationService.goToTabUser != null) {
-            NavigationService.goToTabUser!(0);
-            return;
-          }
-
           NavigationService.goHomeUser?.call();
         },
       ),

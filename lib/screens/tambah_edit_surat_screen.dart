@@ -355,10 +355,24 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Arsip Surat' : 'Tambah Arsip Surat Masuk'),
-        backgroundColor: AppColors.primaryDark,
+        title: Text(
+          isEdit ? 'Edit Arsip Surat' : 'Tambah Arsip Surat Masuk',
+          style: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF475569),
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -367,7 +381,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(color: AppColors.primary),
+                  CircularProgressIndicator(color: Color(0xFFF59E0B)),
                   SizedBox(height: 16),
                   Text(
                     'Mengunggah berkas & menyimpan metadata...',
@@ -435,7 +449,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                                       color: _selectedTanggal == null ? AppColors.textHint : AppColors.textPrimary,
                                     ),
                                   ),
-                                  const Icon(Icons.calendar_today, size: 18, color: AppColors.primary),
+                                  const Icon(Icons.calendar_today, size: 18, color: Color(0xFFF59E0B)),
                                 ],
                               ),
                             ),
@@ -570,10 +584,28 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                     // Tombol Simpan Arsip
                     SizedBox(
                       width: double.infinity,
-                      child: GradientButton(
-                        label: isEdit ? 'Simpan Perubahan' : 'Simpan Arsip',
-                        icon: Icons.save_rounded,
+                      height: 50,
+                      child: ElevatedButton.icon(
                         onPressed: _simpan,
+                        icon: const Icon(Icons.save_rounded, color: Colors.white),
+                        label: Text(
+                          isEdit ? 'Simpan Perubahan' : 'Simpan Arsip',
+                          style: const TextStyle(
+                            fontFamily: 'Poppins',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shadowColor: const Color(0x40F59E0B),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -593,10 +625,10 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
           width: double.infinity,
           height: 180,
           decoration: BoxDecoration(
-            color: AppColors.surfaceVariant,
+            color: const Color(0xFFFFFBEB),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.primary.withValues(alpha: 0.3),
+              color: const Color(0xFFF59E0B).withValues(alpha: 0.4),
               width: 1.5,
               style: BorderStyle.solid,
             ),
@@ -604,7 +636,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
           child: const Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_upload_outlined, size: 48, color: AppColors.primary),
+              Icon(Icons.cloud_upload_outlined, size: 48, color: Color(0xFFD97706)),
               SizedBox(height: 12),
               Text(
                 'Upload Lampiran Berkas',
@@ -612,7 +644,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                   fontFamily: 'Poppins',
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
+                  color: Color(0xFFB45309),
                 ),
               ),
               SizedBox(height: 4),

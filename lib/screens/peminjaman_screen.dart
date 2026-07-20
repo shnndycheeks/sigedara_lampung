@@ -343,11 +343,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen>
             size: 20,
           ),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              NavigationService.goHomeUser?.call();
-            }
+            NavigationService.goHomeUser?.call();
           },
         ),
         actions: [

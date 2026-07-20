@@ -542,11 +542,7 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
             size: 20,
           ),
           onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              NavigationService.goHomeAdmin?.call();
-            }
+            NavigationService.goHomeAdmin?.call();
           },
         ),
         actions: [
