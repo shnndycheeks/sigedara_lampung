@@ -6,7 +6,9 @@ import 'package:image_picker/image_picker.dart';
 import '../models/arsip_surat_model.dart';
 import '../theme/app_theme.dart';
 import '../services/arsip_surat_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/lembar_disposisi_widget.dart';
 
 class TambahEditSuratScreen extends StatefulWidget {
   final ArsipSurat? existing;
@@ -23,10 +25,14 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
   final _nomorCtrl = TextEditingController();
   final _dariCtrl = TextEditingController();
   final _kepadaCtrl = TextEditingController();
+  final _instruksiCtrl = TextEditingController();
+  final _noAgendaCtrl = TextEditingController();
   
   DateTime? _selectedTanggal;
   String _selectedUrgensi = 'Biasa';
   String _selectedKategori = 'Umum';
+  String _penerimaLevel = 'Bapak Kepala Biro Umum';
+  List<String> _selectedDiteruskan = ['Kabag. Tata Usaha', 'Kabag. Rumah Tangga'];
 
   // File variables
   String? _pickedFileName;
@@ -46,6 +52,10 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       _nomorCtrl.text = e.nomorSurat;
       _dariCtrl.text = e.dari;
       _kepadaCtrl.text = e.kepada;
+      _instruksiCtrl.text = e.instruksiDisposisi;
+      _noAgendaCtrl.text = e.noAgenda != '-' ? e.noAgenda : '';
+      _penerimaLevel = e.penerimaLevel;
+      _selectedDiteruskan = List<String>.from(e.diteruskanKepada);
       _selectedTanggal = e.tanggalSurat;
       // Map existing urgensi to match standard values or fallback
       _selectedUrgensi = ['Biasa', 'Segera', 'Sangat Segera'].contains(e.tingkatUrgensi)
@@ -65,6 +75,8 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
     _nomorCtrl.dispose();
     _dariCtrl.dispose();
     _kepadaCtrl.dispose();
+    _instruksiCtrl.dispose();
+    _noAgendaCtrl.dispose();
     super.dispose();
   }
 
@@ -223,18 +235,6 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
 
     final isEdit = widget.existing != null;
     
-    // File validation
-    if (!isEdit && _pickedFileBytes == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Anda wajib melampirkan file surat (PDF/Kamera/Galeri)'),
-          backgroundColor: AppColors.error,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     setState(() {
       _saving = true;
     });
@@ -245,8 +245,23 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       final dari = _dariCtrl.text.trim();
       final kepada = _kepadaCtrl.text.trim();
 
-      final statusPengiriman = widget.existing?.statusPengiriman ?? 'belum_dikirim_karo';
-      final instruksiDisposisi = widget.existing?.instruksiDisposisi ?? '';
+      final statusPengiriman = isEdit
+          ? (widget.existing?.statusPengiriman ?? 'menunggu_karo')
+          : 'menunggu_karo';
+      final instruksiDisposisi = _instruksiCtrl.text.trim();
+
+      final existingHistory = isEdit ? widget.existing!.riwayatDisposisi : [];
+      final List<Map<String, dynamic>> riwayatList = List<Map<String, dynamic>>.from(existingHistory);
+
+      if (!isEdit && riwayatList.isEmpty) {
+        riwayatList.add({
+          'oleh': 'Admin TU',
+          'ke': 'Kepala Biro Umum',
+          'waktu': DateTime.now().toIso8601String(),
+          'status': 'Menunggu Disposisi Kepala Biro',
+          'instruksi': 'Surat di-scan dan di-upload ke aplikasi SIMASTER.',
+        });
+      }
 
       final deskripsiMap = {
         'nomor_surat': nomor,
@@ -254,25 +269,21 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         'dari': dari,
         'kepada': kepada,
         'instruksi_disposisi': instruksiDisposisi,
+        'no_agenda': _noAgendaCtrl.text.trim(),
+        'penerima_level': _penerimaLevel,
+        'diteruskan_kepada': _selectedDiteruskan,
         'tingkat_urgensi': _selectedUrgensi,
         'status_pengiriman': statusPengiriman,
         'status_disposisi': statusPengiriman,
+        'riwayat_disposisi': riwayatList,
       };
 
       String finalFileUrl = widget.existing?.fileUrl ?? '';
       String finalFilePath = widget.existing?.filePath ?? '';
       int? finalFileSize = widget.existing?.fileSize;
 
-      debugPrint('tambah_edit_surat_screen._simpan: initiating save flow.');
-      debugPrint('isEdit: $isEdit');
-      debugPrint('_pickedFileBytes exists: ${_pickedFileBytes != null}');
-      debugPrint('_pickedFileName: $_pickedFileName');
-      debugPrint('Original fileUrl: $finalFileUrl');
-      debugPrint('Original filePath: $finalFilePath');
-
-      // 1. Upload new file only if selected
+      // 1. Upload new file if selected, otherwise generate official Lembar Disposisi PDF automatically
       if (_pickedFileBytes != null && _pickedFileName != null) {
-        debugPrint('[LOG 3] Pemanggilan upload berkas asli dimulai: file=$_pickedFileName');
         final uploadResult = await ArsipSuratService.uploadBerkasAsli(
           fileName: _pickedFileName!,
           fileBytes: _pickedFileBytes!,
@@ -281,11 +292,37 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         finalFileUrl = uploadResult['file_url']!;
         finalFilePath = uploadResult['file_path']!;
         finalFileSize = _pickedFileSize;
-        debugPrint('[LOG 5] file_url dan file_path berubah setelah upload:');
-        debugPrint('  - finalFileUrl: $finalFileUrl');
-        debugPrint('  - finalFilePath: $finalFilePath');
-      } else {
-        debugPrint('No new file lampiran selected, skipping upload.');
+      } else if (!isEdit || finalFileUrl.isEmpty) {
+        // Otomatis buatkan dokumen PDF Lembar Disposisi Digital resmi Pemprov Lampung
+        final tempSurat = ArsipSurat(
+          id: widget.existing?.id ?? 'temp_id',
+          judul: judul,
+          kategori: _selectedKategori,
+          deskripsi: deskripsiMap,
+          fileUrl: '',
+          filePath: '',
+          fileSize: 0,
+          createdAt: DateTime.now(),
+          nomorSurat: nomor,
+          tanggalSurat: _selectedTanggal,
+          dari: dari,
+          kepada: kepada,
+          instruksiDisposisi: instruksiDisposisi,
+          tingkatUrgensi: _selectedUrgensi,
+          statusPengiriman: statusPengiriman,
+        );
+
+        final generatedPdfBytes = await generateLembarDisposisiPdf(tempSurat);
+        final generatedFileName = 'Lembar_Disposisi_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+        final uploadResult = await ArsipSuratService.uploadBerkasAsli(
+          fileName: generatedFileName,
+          fileBytes: generatedPdfBytes,
+          mimeType: 'application/pdf',
+        );
+        finalFileUrl = uploadResult['file_url']!;
+        finalFilePath = uploadResult['file_path']!;
+        finalFileSize = generatedPdfBytes.length;
       }
 
       // 2. Save metadata to DB
@@ -320,6 +357,47 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       }
 
       if (!mounted) return;
+
+      if (!isEdit) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Color(0xFF10B981)),
+                SizedBox(width: 8),
+                Expanded(child: Text('Surat Disimpan!', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+              ],
+            ),
+            content: const Text(
+              'Surat & Lembar Disposisi Digital berhasil dibuat!\n\nLanjutkan alur dengan mengirim notifikasi WhatsApp ke Karo (Bapak Kepala Biro)?',
+              style: TextStyle(fontSize: 13),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Nanti Saja'),
+              ),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _bukaWhatsAppKaro(nomor, dari, judul);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(Icons.chat),
+                label: const Text('Kirim WA ke Karo'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
@@ -334,6 +412,32 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _bukaWhatsAppKaro(String nomor, String dari, String perihal) async {
+    final message = "Assalamu'alaikum Wr. Wb.\n\n"
+        "Yth. Kepala Biro,\n\n"
+        "Terdapat surat masuk baru yang telah di-scan oleh TU dan memerlukan disposisi.\n\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "Nomor Surat:\n$nomor\n\n"
+        "Perihal:\n$perihal\n\n"
+        "Asal Surat:\n$dari\n\n"
+        "━━━━━━━━━━━━━━\n\n"
+        "Silakan lakukan disposisi ke Kabag Rumah Tangga melalui aplikasi SIMASTER.\n\n"
+        "Terima kasih.";
+
+    final encodedMessage = Uri.encodeComponent(message);
+    final phone = "62887437216916";
+    final whatsappAppUri = Uri.parse("whatsapp://send?phone=$phone&text=$encodedMessage");
+    final whatsappWebUri = Uri.parse("https://wa.me/$phone?text=$encodedMessage");
+    
+    try {
+      if (await canLaunchUrl(whatsappAppUri)) {
+        await launchUrl(whatsappAppUri, mode: LaunchMode.externalApplication);
+      } else if (await canLaunchUrl(whatsappWebUri)) {
+        await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
   }
 
   Color _getUrgensiColor(String urgensi) {
@@ -417,6 +521,8 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _nomorCtrl,
+                            enabled: true,
+                            textInputAction: TextInputAction.next,
                             style: AppTextStyles.body,
                             decoration: const InputDecoration(
                               hintText: 'Nomor surat masuk',
@@ -456,54 +562,51 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                           ),
                           const SizedBox(height: 14),
 
-                          // Perihal
-                          const Text('Perihal Surat / Judul', style: AppTextStyles.label),
-                          const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _judulCtrl,
-                            style: AppTextStyles.body,
-                            decoration: const InputDecoration(
-                              hintText: 'Perihal / judul surat',
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Perihal wajib diisi' : null,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Informasi Disposisi Card
-                    NeuCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Informasi Disposisi', style: AppTextStyles.h3),
-                          const SizedBox(height: 16),
-
                           // Dari (Asal Surat)
-                          const Text('Dari (Pengirim)', style: AppTextStyles.label),
+                          const Text('Dari (Instansi Pengirim)', style: AppTextStyles.label),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _dariCtrl,
+                            enabled: true,
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.next,
                             style: AppTextStyles.body,
                             decoration: const InputDecoration(
-                              hintText: 'Instansi pengirim',
+                              hintText: 'Contoh: Dinas Perhubungan / Sekda',
                             ),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Asal pengirim wajib diisi' : null,
                           ),
                           const SizedBox(height: 14),
 
-                          // Kepada (Penerima Disposisi)
-                          const Text('Kepada (Penerima Disposisi)', style: AppTextStyles.label),
+                          // Kepada (Tujuan Surat)
+                          const Text('Kepada (Tujuan Surat)', style: AppTextStyles.label),
                           const SizedBox(height: 6),
                           TextFormField(
                             controller: _kepadaCtrl,
+                            enabled: true,
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.next,
                             style: AppTextStyles.body,
                             decoration: const InputDecoration(
-                              hintText: 'Tujuan penerima disposisi',
+                              hintText: 'Contoh: Kepala Biro Umum',
                             ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Penerima disposisi wajib diisi' : null,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Perihal
+                          const Text('Perihal Surat / Judul', style: AppTextStyles.label),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _judulCtrl,
+                            enabled: true,
+                            keyboardType: TextInputType.multiline,
+                            maxLines: 2,
+                            textInputAction: TextInputAction.done,
+                            style: AppTextStyles.body,
+                            decoration: const InputDecoration(
+                              hintText: 'Perihal / judul surat',
+                            ),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Perihal wajib diisi' : null,
                           ),
                         ],
                       ),

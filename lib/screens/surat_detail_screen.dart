@@ -12,6 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'tambah_edit_surat_screen.dart';
 import 'full_screen_image_screen.dart';
+import '../widgets/lembar_disposisi_widget.dart';
 
 class SuratDetailScreen extends StatefulWidget {
   final ArsipSurat surat;
@@ -358,6 +359,327 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     }
   }
 
+  Future<void> _cetakLembarDisposisi() async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      final pdfBytes = await generateLembarDisposisiPdf(_arsip);
+      await Printing.layoutPdf(
+        onLayout: (format) => pdfBytes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal mencetak lembar disposisi: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _showModalIsiDisposisi() async {
+    String selectedLevel = _arsip.penerimaLevel;
+    List<String> selectedDiteruskan = List<String>.from(_arsip.diteruskanKepada);
+    final instruksiCtrl = TextEditingController(text: _arsip.instruksiDisposisi);
+    final agendaCtrl = TextEditingController(text: _arsip.noAgenda != '-' ? _arsip.noAgenda : '');
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isKaro = selectedLevel == 'Bapak Kepala Biro Umum';
+            final currentOptions = isKaro
+                ? [
+                    'Kabag. Tata Usaha',
+                    'Kabag. Rumah Tangga',
+                    'Kabag. Administrasi dan Aset',
+                    'Sespri',
+                  ]
+                : [
+                    'Ka. Tim Kerja . Urusan Dalam',
+                    'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung/Kantor',
+                    'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Kendaraan',
+                  ];
+
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                top: 20,
+                left: 16,
+                right: 16,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('📝 Isi / Edit Lembar Disposisi', style: AppTextStyles.h3),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx, false),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    const SizedBox(height: 8),
+
+                    // Level Penandatangan Disposisi
+                    const Text('Pejabat Yang Mendingosisi', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedLevel,
+                      decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Bapak Kepala Biro Umum',
+                          child: Text('Bapak Kepala Biro Umum (Karo)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Kepala Bagian Rumah Tangga',
+                          child: Text('Kepala Bagian Rumah Tangga (Kabag)'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setModalState(() {
+                            selectedLevel = val;
+                            if (val == 'Bapak Kepala Biro Umum') {
+                              selectedDiteruskan = ['Kabag. Tata Usaha', 'Kabag. Rumah Tangga'];
+                            } else {
+                              selectedDiteruskan = ['Ka. Tim Kerja . Urusan Dalam'];
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // No. Agenda Diterima
+                    const Text('Nomor Agenda Diterima (Opsional)', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: agendaCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'Contoh: 045.2 / 128 / II.01',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Checkboxes Diteruskan Kepada Yth
+                    const Text('Diteruskan Kepada Yth. :', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    ...currentOptions.map((opt) {
+                      final isChecked = selectedDiteruskan.contains(opt);
+                      return CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: const Color(0xFFF59E0B),
+                        title: Text(
+                          opt,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        value: isChecked,
+                        onChanged: (val) {
+                          setModalState(() {
+                            if (val == true) {
+                              if (!selectedDiteruskan.contains(opt)) selectedDiteruskan.add(opt);
+                            } else {
+                              selectedDiteruskan.remove(opt);
+                            }
+                          });
+                        },
+                      );
+                    }),
+                    const SizedBox(height: 14),
+
+                    // Catatan / Instruksi Disposisi
+                    const Text('Catatan / Instruksi Disposisi', style: AppTextStyles.label),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: instruksiCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Tuliskan catatan instruksi pimpinan di sini...',
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Simpan Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.check_circle_rounded),
+                        label: const Text(
+                          'Simpan & Kirim Disposisi',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true) {
+      // Update DB and refresh
+      setState(() {
+        _loading = true;
+      });
+      try {
+        final isKaro = selectedLevel == 'Bapak Kepala Biro Umum';
+        final newStatus = isKaro ? 'menunggu_kabag' : 'menunggu_katim';
+        final pengirim = isKaro ? 'Kepala Biro Umum' : 'Kabag Rumah Tangga';
+        final penerima = selectedDiteruskan.isNotEmpty ? selectedDiteruskan.join(', ') : (isKaro ? 'Kabag Rumah Tangga' : 'Ka. Tim Kerja');
+        final statusText = isKaro ? 'Menunggu Disposisi Kabag Rumah Tangga' : 'Menunggu ${selectedDiteruskan.isNotEmpty ? selectedDiteruskan.first : "Ka. Tim Kerja"}';
+
+        final List<Map<String, dynamic>> historyList = List<Map<String, dynamic>>.from(_arsip.riwayatDisposisi);
+        historyList.add({
+          'oleh': pengirim,
+          'ke': penerima,
+          'waktu': DateTime.now().toIso8601String(),
+          'status': statusText,
+          'instruksi': instruksiCtrl.text.trim().isNotEmpty ? instruksiCtrl.text.trim() : 'Surat didisposisikan.',
+        });
+
+        final updatedMap = Map<String, dynamic>.from(_arsip.deskripsi);
+        updatedMap['penerima_level'] = selectedLevel;
+        updatedMap['diteruskan_kepada'] = selectedDiteruskan;
+        updatedMap['instruksi_disposisi'] = instruksiCtrl.text.trim();
+        updatedMap['no_agenda'] = agendaCtrl.text.trim();
+        updatedMap['status_pengiriman'] = newStatus;
+        updatedMap['status_disposisi'] = newStatus;
+        updatedMap['riwayat_disposisi'] = historyList;
+
+        final targetRole = isKaro ? 'Kabag Rumah Tangga' : 'Ka. Tim Kerja';
+        final nextStage = statusText;
+
+        // Re-generate Lembar Disposisi PDF
+        final tempSurat = ArsipSurat(
+          id: _arsip.id,
+          judul: _arsip.judul,
+          kategori: _arsip.kategori,
+          deskripsi: updatedMap,
+          fileUrl: _arsip.fileUrl,
+          filePath: _arsip.filePath,
+          fileSize: _arsip.fileSize,
+          createdAt: _arsip.createdAt,
+          nomorSurat: _arsip.nomorSurat,
+          tanggalSurat: _arsip.tanggalSurat,
+          dari: _arsip.dari,
+          kepada: _arsip.kepada,
+          instruksiDisposisi: instruksiCtrl.text.trim(),
+          tingkatUrgensi: _arsip.tingkatUrgensi,
+          statusPengiriman: updatedMap['status_pengiriman'],
+        );
+
+        final newPdfBytes = await generateLembarDisposisiPdf(tempSurat);
+
+        // Upload updated PDF to storage
+        final uploadResult = await ArsipSuratService.uploadBerkasAsli(
+          fileName: 'Lembar_Disposisi_${DateTime.now().millisecondsSinceEpoch}.pdf',
+          fileBytes: newPdfBytes,
+          mimeType: 'application/pdf',
+        );
+
+        await ArsipSuratService.updateArsip(
+          id: _arsip.id,
+          judul: _arsip.judul,
+          kategori: _arsip.kategori,
+          deskripsi: updatedMap,
+          fileUrl: uploadResult['file_url'],
+          filePath: uploadResult['file_path'],
+          fileSize: newPdfBytes.length,
+          oldFilePathToDelete: _arsip.filePath,
+        );
+
+        await _refreshData();
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Disposisi berhasil disimpan & diperbarui!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+
+        // Send WhatsApp notification automatically
+        final message = "Assalamu'alaikum Wr. Wb.\n\n"
+            "Yth. $targetRole,\n\n"
+            "Terdapat pembaharuan alur disposisi surat masuk.\n\n"
+            "━━━━━━━━━━━━━━\n\n"
+            "Nomor Surat:\n${_arsip.nomorSurat}\n\n"
+            "Perihal:\n${_arsip.judul}\n\n"
+            "Asal Surat:\n${_arsip.dari}\n\n"
+            "Status Disposisi:\n$nextStage\n\n"
+            "Instruksi:\n${instruksiCtrl.text.trim().isNotEmpty ? instruksiCtrl.text.trim() : '-'}\n\n"
+            "━━━━━━━━━━━━━━\n\n"
+            "📄 Lembar Disposisi Digital:\n${_signedUrl ?? _arsip.fileUrl}\n\n"
+            "Terima kasih.";
+
+        final encodedMessage = Uri.encodeComponent(message);
+        final phone = "62887437216916";
+        final whatsappAppUri = Uri.parse("whatsapp://send?phone=$phone&text=$encodedMessage");
+        final whatsappWebUri = Uri.parse("https://wa.me/$phone?text=$encodedMessage");
+
+        try {
+          if (await canLaunchUrl(whatsappAppUri)) {
+            await launchUrl(whatsappAppUri, mode: LaunchMode.externalApplication);
+          } else if (await canLaunchUrl(whatsappWebUri)) {
+            await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
+          }
+        } catch (_) {}
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal menyimpan disposisi: $e'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasFile = _arsip.fileUrl.isNotEmpty;
@@ -398,6 +720,56 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // LEMBAR DISPOSISI DIGITAL
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Lembar Disposisi Digital', style: AppTextStyles.h3),
+                      Row(
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: _loading ? null : _showModalIsiDisposisi,
+                            icon: const Icon(Icons.edit_note_rounded, size: 16, color: Colors.white),
+                            label: const Text('Isi Disposisi', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFF59E0B),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          OutlinedButton.icon(
+                            onPressed: _loading ? null : _cetakLembarDisposisi,
+                            icon: const Icon(Icons.print_rounded, size: 16, color: Color(0xFFD97706)),
+                            label: const Text('Cetak', style: TextStyle(fontSize: 12, color: Color(0xFFD97706), fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFF59E0B)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  LembarDisposisiWidget(
+                    surat: _arsip,
+                    isEditable: true,
+                    onUpdateDisposisi: (newDiteruskan, newInstruksi, newLevel) {
+                      _onDirectDisposisiChanged(newDiteruskan, newInstruksi, newLevel);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // VISUAL STEPPER TIMELINE ALUR DISPOSISI
+                  _buildAlurDisposisiTimeline(),
+                  const SizedBox(height: 16),
+
+                  // RIWAYAT AUDIT TRANSPARAN DISPOSISI
+                  _buildRiwayatDisposisiCard(),
+                  const SizedBox(height: 24),
+
                   // Meta Info Card
                   NeuCard(
                     padding: const EdgeInsets.all(16),
@@ -493,58 +865,89 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // WhatsApp Disposisi Action Button
-                  if (_arsip.statusPengiriman == 'sudah_dikirim_karo') ...[
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle, size: 16, color: AppColors.success),
-                            SizedBox(width: 6),
-                            Text(
-                              'Sudah dikirim ke Kepala Biro',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 12,
-                                color: AppColors.success,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  // TINDAKAN ALUR DISPOSISI
+                  const Text('Tindakan Alur Disposisi & Persetujuan', style: AppTextStyles.h3),
+                  const SizedBox(height: 12),
+
+                  // Button 1: Kirim WA ke Karo (TU)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _loading ? null : _kirimKeWhatsAppKepalaBiro,
-                      icon: const Icon(Icons.chat_rounded, color: Colors.white),
+                      icon: const Icon(Icons.send_rounded, color: Colors.white),
                       label: Text(
-                        _arsip.statusPengiriman == 'sudah_dikirim_karo'
-                            ? 'Kirim Ulang ke WhatsApp Kepala Biro'
-                            : 'Kirim ke WhatsApp Kepala Biro',
-                        style: const TextStyle(
-                          fontFamily: 'Poppins',
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          fontSize: 14,
-                        ),
+                        _arsip.statusPengiriman == 'belum_dikirim_karo'
+                            ? '1. Kirim WA ke Karo (Bapak Kepala Biro)'
+                            : '1. Kirim Ulang WA ke Karo',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366), // WA Green
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        backgroundColor: const Color(0xFF25D366),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Button 2: Disposisi Karo -> Kabag Rumah Tangga
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : () => _updateWorkflowStage('disposisi_kabag', 'Disposisi Karo ➔ Kabag Rumah Tangga', '62887437216916', 'Kabag Rumah Tangga'),
+                      icon: const Icon(Icons.forward_to_inbox_rounded, color: Colors.white),
+                      label: Text(
+                        _arsip.statusPengiriman == 'disposisi_kabag'
+                            ? '2. Disposisi ke Kabag Rumah Tangga (Terkirim)'
+                            : '2. Teruskan Disposisi Karo ➔ Kabag Rumah Tangga',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Button 3: Disposisi Kabag -> Katim
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : () => _updateWorkflowStage('disposisi_katim', 'Disposisi Kabag ➔ Ka. Tim Kerja', '62887437216916', 'Ka. Tim Kerja'),
+                      icon: const Icon(Icons.alt_route_rounded, color: Colors.white),
+                      label: Text(
+                        _arsip.statusPengiriman == 'disposisi_katim'
+                            ? '3. Disposisi ke Ka. Tim Kerja (Terkirim)'
+                            : '3. Teruskan Disposisi Kabag ➔ Ka. Tim Kerja (Katim)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Button 4: Katim Setujui Pengajuan
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _loading ? null : () => _updateWorkflowStage('disetujui_katim', 'Disetujui Katim (Selesai)', '62887437216916', 'Pemohon / Admin'),
+                      icon: const Icon(Icons.verified_rounded, color: Colors.white),
+                      label: Text(
+                        _arsip.statusPengiriman == 'disetujui_katim'
+                            ? '4. Pengajuan Disetujui Katim (Selesai)'
+                            : '4. Setujui Pengajuan (Ka. Tim Kerja)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
@@ -635,6 +1038,349 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                 ],
               ),
             ),
+      ),
+    );
+  }
+
+  Future<void> _onDirectDisposisiChanged(List<String> newDiteruskan, String newInstruksi, String newLevel) async {
+    try {
+      final updatedMap = Map<String, dynamic>.from(_arsip.deskripsi);
+      updatedMap['penerima_level'] = newLevel;
+      updatedMap['diteruskan_kepada'] = newDiteruskan;
+      updatedMap['instruksi_disposisi'] = newInstruksi;
+
+      final isKaro = newLevel.toLowerCase().contains('biro') || newLevel.toLowerCase().contains('karo');
+      final newStatus = isKaro ? 'menunggu_kabag' : 'menunggu_katim';
+      updatedMap['status_pengiriman'] = newStatus;
+      updatedMap['status_disposisi'] = newStatus;
+
+      await ArsipSuratService.updateArsip(
+        id: _arsip.id,
+        judul: _arsip.judul,
+        kategori: _arsip.kategori,
+        deskripsi: updatedMap,
+        fileUrl: _arsip.fileUrl,
+        filePath: _arsip.filePath,
+        fileSize: _arsip.fileSize,
+      );
+
+      final updated = await ArsipSuratService.getArsipById(_arsip.id);
+      if (mounted) {
+        setState(() {
+          _arsip = updated;
+          _anyEdit = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error updating direct disposisi: $e');
+    }
+  }
+
+  Future<void> _updateWorkflowStage(String newStatus, String stageName, String phone, String targetRole) async {
+    setState(() {
+      _loading = true;
+    });
+    try {
+      final List<Map<String, dynamic>> historyList = List<Map<String, dynamic>>.from(_arsip.riwayatDisposisi);
+      String oleh = 'Admin';
+      String ke = targetRole;
+
+      if (newStatus == 'menunggu_karo') {
+        oleh = 'Admin TU';
+        ke = 'Kepala Biro Umum';
+      } else if (newStatus == 'menunggu_kabag' || newStatus == 'disposisi_kabag') {
+        oleh = 'Kepala Biro Umum';
+        ke = 'Kabag Rumah Tangga';
+      } else if (newStatus == 'menunggu_katim' || newStatus == 'disposisi_katim') {
+        oleh = 'Kabag Rumah Tangga';
+        ke = _arsip.diteruskanKepada.isNotEmpty ? _arsip.diteruskanKepada.first : 'Ka. Tim Kerja';
+      } else if (newStatus == 'selesai' || newStatus == 'disetujui_katim') {
+        oleh = _arsip.diteruskanKepada.isNotEmpty ? _arsip.diteruskanKepada.first : 'Ka. Tim Kerja';
+        ke = 'Selesai';
+      }
+
+      historyList.add({
+        'oleh': oleh,
+        'ke': ke,
+        'waktu': DateTime.now().toIso8601String(),
+        'status': stageName,
+        'instruksi': newStatus == 'selesai' || newStatus == 'disetujui_katim'
+            ? 'Pekerjaan telah dilaksanakan dan selesai.'
+            : (_arsip.instruksiDisposisi.isNotEmpty ? _arsip.instruksiDisposisi : 'Status alur diperbarui.'),
+      });
+
+      final updatedDeskripsi = Map<String, dynamic>.from(_arsip.deskripsi);
+      updatedDeskripsi['status_pengiriman'] = newStatus;
+      updatedDeskripsi['status_disposisi'] = newStatus;
+      updatedDeskripsi['riwayat_disposisi'] = historyList;
+
+      await ArsipSuratService.updateArsip(
+        id: _arsip.id,
+        judul: _arsip.judul,
+        kategori: _arsip.kategori,
+        deskripsi: updatedDeskripsi,
+        fileUrl: _arsip.fileUrl,
+        filePath: _arsip.filePath,
+        fileSize: _arsip.fileSize,
+      );
+      
+      final updated = await ArsipSuratService.getArsipById(_arsip.id);
+      if (mounted) {
+        setState(() {
+          _arsip = updated;
+          _anyEdit = true;
+          _loading = false;
+        });
+      }
+
+      final message = "Assalamu'alaikum Wr. Wb.\n\n"
+          "Yth. $targetRole,\n\n"
+          "Terdapat pembaharuan alur disposisi surat masuk.\n\n"
+          "━━━━━━━━━━━━━━\n\n"
+          "Nomor Surat:\n${_arsip.nomorSurat}\n\n"
+          "Perihal:\n${_arsip.judul}\n\n"
+          "Asal Surat:\n${_arsip.dari}\n\n"
+          "Status Disposisi:\n$stageName\n\n"
+          "Instruksi:\n${_arsip.instruksiDisposisi.isNotEmpty ? _arsip.instruksiDisposisi : '-'}\n\n"
+          "━━━━━━━━━━━━━━\n\n"
+          "📄 Lembar Disposisi & Surat:\n${_signedUrl ?? _arsip.fileUrl}\n\n"
+          "Terima kasih.";
+
+      final encodedMessage = Uri.encodeComponent(message);
+      final whatsappAppUri = Uri.parse("whatsapp://send?phone=$phone&text=$encodedMessage");
+      final whatsappWebUri = Uri.parse("https://wa.me/$phone?text=$encodedMessage");
+      
+      try {
+        if (await canLaunchUrl(whatsappAppUri)) {
+          await launchUrl(whatsappAppUri, mode: LaunchMode.externalApplication);
+        } else if (await canLaunchUrl(whatsappWebUri)) {
+          await launchUrl(whatsappWebUri, mode: LaunchMode.externalApplication);
+        }
+      } catch (_) {}
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memperbarui alur disposisi: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildAlurDisposisiTimeline() {
+    final status = _arsip.statusPengiriman;
+
+    int currentStep = 1;
+    if (status == 'sudah_dikirim_karo') currentStep = 1;
+    if (status == 'disposisi_kabag') currentStep = 2;
+    if (status == 'disposisi_katim') currentStep = 3;
+    if (status == 'disetujui_katim') currentStep = 4;
+
+    return NeuCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Alur Disposisi & Persetujuan', style: AppTextStyles.h3),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: currentStep == 4 ? AppColors.success.withValues(alpha: 0.1) : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: currentStep == 4 ? AppColors.success : const Color(0xFFF59E0B),
+                  ),
+                ),
+                child: Text(
+                  currentStep == 4 ? 'Disetujui Katim' : 'Tahap $currentStep dari 4',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: currentStep == 4 ? AppColors.success : const Color(0xFFB45309),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Alur: TU Scan ➔ Karo (Biro) ➔ Kabag Rumah Tangga ➔ Katim (Persetujuan)',
+            style: AppTextStyles.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildStepItem(1, 'TU Scan', currentStep >= 1, currentStep == 1),
+              _buildStepLine(currentStep >= 2),
+              _buildStepItem(2, 'Karo', currentStep >= 2, currentStep == 2),
+              _buildStepLine(currentStep >= 3),
+              _buildStepItem(3, 'Kabag', currentStep >= 3, currentStep == 3),
+              _buildStepLine(currentStep >= 4),
+              _buildStepItem(4, 'Katim', currentStep >= 4, currentStep == 4),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepItem(int stepNum, String title, bool isDone, bool isCurrent) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDone
+                  ? (stepNum == 4 && isDone ? AppColors.success : const Color(0xFFF59E0B))
+                  : Colors.grey.shade200,
+              border: isCurrent
+                  ? Border.all(color: const Color(0xFF0F172A), width: 2.5)
+                  : null,
+            ),
+            child: Center(
+              child: isDone
+                  ? const Icon(Icons.check, size: 18, color: Colors.white)
+                  : Text(
+                      '$stepNum',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isCurrent || isDone ? FontWeight.bold : FontWeight.normal,
+              color: isDone ? AppColors.textPrimary : AppColors.textHint,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepLine(bool isDone) {
+    return Container(
+      width: 16,
+      height: 2,
+      color: isDone ? const Color(0xFFF59E0B) : Colors.grey.shade300,
+      margin: const EdgeInsets.only(bottom: 18),
+    );
+  }
+
+  Widget _buildRiwayatDisposisiCard() {
+    final history = _arsip.riwayatDisposisi;
+    if (history.isEmpty) return const SizedBox.shrink();
+
+    return NeuCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('📜 Riwayat Transparan Disposisi', style: AppTextStyles.h3),
+          const SizedBox(height: 4),
+          const Text(
+            'Catatan riwayat audit waktu, pengirim, penerima, dan instruksi.',
+            style: AppTextStyles.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          const Divider(),
+          ...history.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final item = entry.value;
+            final oleh = item['oleh']?.toString() ?? '-';
+            final ke = item['ke']?.toString() ?? '-';
+            final statusStr = item['status']?.toString() ?? '-';
+            final instruksiStr = item['instruksi']?.toString() ?? '-';
+            final waktuRaw = item['waktu']?.toString();
+            DateTime? dt;
+            if (waktuRaw != null) dt = DateTime.tryParse(waktuRaw);
+
+            String dua(int n) => n.toString().padLeft(2, '0');
+            final waktuFormatted = dt != null
+                ? '${dua(dt.day)}/${dua(dt.month)}/${dt.year} ${dua(dt.hour)}:${dua(dt.minute)} WIB'
+                : '-';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: idx == history.length - 1 ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${idx + 1}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '$oleh ➔ $ke',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+                              ),
+                            ),
+                            Text(
+                              waktuFormatted,
+                              style: const TextStyle(fontSize: 10, color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'Status: $statusStr',
+                            style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                          ),
+                        ),
+                        if (instruksiStr.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Instruksi: "$instruksiStr"',
+                            style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

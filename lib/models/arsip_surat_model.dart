@@ -21,6 +21,63 @@ class ArsipSurat {
   final String tingkatUrgensi;
   final String statusPengiriman;
 
+  List<String> get diteruskanKepada {
+    final raw = deskripsi['diteruskan_kepada'];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    } else if (raw is String && raw.isNotEmpty) {
+      return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    }
+    return [];
+  }
+
+  String get penerimaLevel {
+    return deskripsi['penerima_level']?.toString() ?? 'Bapak Kepala Biro Umum';
+  }
+
+  String get noAgenda {
+    return deskripsi['no_agenda']?.toString() ?? '-';
+  }
+
+  DateTime? get tanggalDiterima {
+    final raw = deskripsi['tanggal_diterima'];
+    if (raw != null && raw.toString().isNotEmpty) {
+      return DateTime.tryParse(raw.toString());
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> get riwayatDisposisi {
+    final raw = deskripsi['riwayat_disposisi'];
+    if (raw is List) {
+      return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    }
+    return [];
+  }
+
+  String get statusLabel {
+    switch (statusPengiriman) {
+      case 'menunggu_karo':
+      case 'belum_dikirim_karo':
+        return 'Menunggu Disposisi Kepala Biro';
+      case 'menunggu_kabag':
+      case 'disposisi_kabag':
+        return 'Menunggu Disposisi Kabag Rumah Tangga';
+      case 'menunggu_katim':
+      case 'disposisi_katim':
+        final list = diteruskanKepada;
+        if (list.isNotEmpty) {
+          return 'Menunggu ${list.first}';
+        }
+        return 'Menunggu Ka Tim Kerja';
+      case 'selesai':
+      case 'disetujui_katim':
+        return 'Selesai';
+      default:
+        return 'Menunggu Disposisi Kepala Biro';
+    }
+  }
+
   ArsipSurat({
     required this.id,
     required this.judul,
