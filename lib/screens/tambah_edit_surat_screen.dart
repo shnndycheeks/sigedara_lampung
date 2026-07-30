@@ -32,7 +32,7 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
   String _selectedUrgensi = 'Biasa';
   String _selectedKategori = 'Umum';
   String _penerimaLevel = 'Bapak Kepala Biro Umum';
-  List<String> _selectedDiteruskan = ['Kabag. Tata Usaha', 'Kabag. Rumah Tangga'];
+  List<String> _selectedDiteruskan = [];
 
   // File variables
   String? _pickedFileName;
