@@ -6,6 +6,7 @@ import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 import '../services/theme_service.dart';
 import '../services/auth_service.dart';
+import '../services/profile_service.dart';
 import 'notifikasi_screen.dart';
 import '../screens/pengaturan_screen.dart';
 import '../screens/role_selector_screen.dart';
@@ -78,18 +79,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final nip = _safeText(profile?['nip'], fallback: '-');
 
-      final jabatan = _safeText(
+      String jabatan = _safeText(
         profile?['jabatan'] ?? profile?['posisi'] ?? profile?['bagian'],
         fallback: '-',
       );
 
-      final unitKerja = _safeText(
+      String unitKerja = _safeText(
         profile?['unit_kerja'] ??
             profile?['unit'] ??
             profile?['dinas'] ??
             profile?['instansi'],
         fallback: 'Biro Umum Setda',
       );
+
+      // Attempt joined profile fetch via ProfileService safely without crashing on error
+      try {
+        final profileModel = await ProfileService.getProfile(user.id);
+        if (profileModel != null) {
+          if (profileModel.jabatan != null &&
+              profileModel.jabatan!.namaJabatan.isNotEmpty) {
+            jabatan = profileModel.jabatan!.namaJabatan;
+          }
+          if (profileModel.role != null &&
+              profileModel.role!.namaRole.isNotEmpty) {
+            unitKerja = profileModel.role!.namaRole;
+          }
+        }
+      } catch (srvErr) {
+        debugPrint('ProfileService fetch fallback: $srvErr');
+      }
 
       final email = _safeText(profile?['email'], fallback: user.email ?? '-');
 

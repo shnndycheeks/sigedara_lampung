@@ -120,19 +120,7 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       await AuthService.login(email: email, password: password);
 
-      final expectedRole = widget.isAdmin ? UserRole.admin : UserRole.user;
-
       final currentRole = AuthService.currentRole.value;
-
-      if (currentRole != expectedRole) {
-        await AuthService.logout();
-
-        throw Exception(
-          widget.isAdmin
-              ? 'Akun ini bukan Administrator'
-              : 'Akun ini bukan Pegawai',
-        );
-      }
 
       if (!mounted) return;
 
@@ -152,8 +140,9 @@ class _LoginScreenState extends State<LoginScreen>
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              widget.isAdmin ? const AdminShell() : const MainShell(),
+          builder: (_) => currentRole == UserRole.admin
+              ? const AdminShell()
+              : const MainShell(),
         ),
         (route) => false,
       );

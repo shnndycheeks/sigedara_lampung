@@ -38,11 +38,16 @@ class AuthService {
 
     final roleText = role == UserRole.admin ? 'admin' : 'pegawai';
 
+    final roleId = role == UserRole.admin ? 'kepala_biro' : 'pegawai';
+    final jabatanId = role == UserRole.admin ? 'karo' : 'tu_staff';
+
     await _client.from('profiles').insert({
       'id': user.id,
       'nama': nama,
       'email': email,
       'role': roleText,
+      'role_id': roleId,
+      'jabatan_id': jabatanId,
       'status': 'aktif',
     });
 
@@ -82,7 +87,7 @@ class AuthService {
 
     final profile = await _client
         .from('profiles')
-        .select('role, status')
+        .select('role_id, role, status')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -91,7 +96,7 @@ class AuthService {
       return;
     }
 
-    final role = profile['role']?.toString().toLowerCase();
+    final roleId = (profile['role_id'] ?? profile['role'])?.toString().toLowerCase();
     final status = (profile['status'] ?? 'aktif').toString().toLowerCase();
 
     if (status == 'nonaktif') {
@@ -100,9 +105,9 @@ class AuthService {
       throw Exception('Akun Anda dinonaktifkan oleh admin');
     }
 
-    if (role == 'admin') {
+    if (roleId == 'admin' || roleId == 'kepala_biro' || roleId == 'tu') {
       currentRole.value = UserRole.admin;
-    } else if (role == 'pegawai') {
+    } else if (roleId != null && roleId.isNotEmpty) {
       currentRole.value = UserRole.user;
     } else {
       currentRole.value = UserRole.guest;

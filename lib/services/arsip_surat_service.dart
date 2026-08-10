@@ -7,34 +7,54 @@ class ArsipSuratService {
   static const String _tableName = 'arsip_surat';
   static const String _bucketName = 'arsip-surat';
 
+  /// Memuat seluruh arsip surat aktif (yang belum di-soft-delete)
   static Future<List<ArsipSurat>> getSemuaArsip() async {
     try {
       final data = await _client
           .from(_tableName)
-          .select()
+          .select('*, disposisi(*)')
+          .filter('deleted_at', 'is', null)
           .order('created_at', ascending: false);
 
       final listMap = List<Map<String, dynamic>>.from(data);
       return listMap.map((json) => ArsipSurat.fromJson(json)).toList();
     } catch (e) {
+      debugPrint('[LOG ERR] Gagal memuat arsip surat: $e');
       throw Exception('Gagal memuat arsip surat: $e');
     }
   }
 
+  /// Memuat detail 1 surat beserta seluruh riwayat disposisinya
   static Future<ArsipSurat> getArsipById(String id) async {
     try {
       final data = await _client
           .from(_tableName)
-          .select()
+          .select('*, disposisi(*)')
           .eq('id', id)
+          .filter('deleted_at', 'is', null)
           .single();
 
-      return ArsipSurat.fromJson(data);
+      final json = Map<String, dynamic>.from(data);
+      
+      // Filter & sort disposisi order by assigned_at ASC
+      if (json['disposisi'] is List) {
+        final rawList = List<Map<String, dynamic>>.from(json['disposisi']);
+        rawList.sort((a, b) {
+          final t1 = DateTime.tryParse(a['assigned_at']?.toString() ?? '') ?? DateTime.now();
+          final t2 = DateTime.tryParse(b['assigned_at']?.toString() ?? '') ?? DateTime.now();
+          return t1.compareTo(t2);
+        });
+        json['disposisi'] = rawList;
+      }
+
+      return ArsipSurat.fromJson(json);
     } catch (e) {
+      debugPrint('[LOG ERR] Gagal memuat detail arsip surat ($id): $e');
       throw Exception('Gagal memuat detail arsip surat: $e');
     }
   }
 
+  /// Menambah surat baru ke tabel arsip_surat (TU Upload)
   static Future<void> tambahArsip({
     required String judul,
     required String kategori,
@@ -42,10 +62,28 @@ class ArsipSuratService {
     required String fileUrl,
     required String filePath,
     required int fileSize,
+    String? nomorSurat,
+    DateTime? tanggalSurat,
+    DateTime? tanggalDiterima,
+    String? dari,
+    String? kepada,
+    String? noAgenda,
+    String? tingkatUrgensi,
+    String? mimeType,
+    String? extension,
+    String? checksum,
   }) async {
     try {
       final user = _client.auth.currentUser;
       final userId = user?.id;
+
+      final pNomorSurat = nomorSurat ?? deskripsi['nomor_surat']?.toString() ?? 'SRT-${DateTime.now().millisecondsSinceEpoch}';
+      final pDari = dari ?? deskripsi['dari']?.toString() ?? 'Instansi Pengirim';
+      final pKepada = kepada ?? deskripsi['kepada']?.toString() ?? 'Kepala Biro Umum';
+      final pNoAgenda = noAgenda ?? deskripsi['no_agenda']?.toString() ?? '-';
+      final pTingkatUrgensi = tingkatUrgensi ?? deskripsi['tingkat_urgensi']?.toString() ?? 'Biasa';
+      final pTglSurat = tanggalSurat ?? DateTime.now();
+      final pTglDiterima = tanggalDiterima ?? DateTime.now();
 
       await _client.from(_tableName).insert({
         'judul': judul,
@@ -54,14 +92,27 @@ class ArsipSuratService {
         'file_url': fileUrl,
         'file_path': filePath,
         'file_size': fileSize,
+        'mime_type': mimeType,
+        'extension': extension,
+        'checksum': checksum,
         'uploaded_by': userId,
-        'created_by': userId,
+        'nomor_surat': pNomorSurat,
+        'tanggal_surat': pTglSurat.toIso8601String().split('T').first,
+        'tanggal_diterima': pTglDiterima.toIso8601String().split('T').first,
+        'dari': pDari,
+        'kepada': pKepada,
+        'no_agenda': pNoAgenda,
+        'tingkat_urgensi': pTingkatUrgensi,
+        'status_global': 'menunggu_karo',
       });
+      debugPrint('[LOG SUCCESS] Surat berhasil disimpan: $pNomorSurat');
     } catch (e) {
+      debugPrint('[LOG ERR] Gagal menyimpan arsip surat: $e');
       throw Exception('Gagal menyimpan arsip surat: $e');
     }
   }
 
+  /// Memperbarui metadata surat
   static Future<void> updateArsip({
     required String id,
     required String judul,
@@ -71,31 +122,31 @@ class ArsipSuratService {
     String? filePath,
     int? fileSize,
     String? oldFilePathToDelete,
+    String? nomorSurat,
+    String? dari,
+    String? kepada,
+    String? noAgenda,
+    String? tingkatUrgensi,
   }) async {
     try {
-      final updateData = {
+      final updateData = <String, dynamic>{
         'judul': judul,
         'kategori': kategori,
         'deskripsi': deskripsi,
       };
 
-      if (fileUrl != null) {
-        updateData['file_url'] = fileUrl;
-      }
-      if (filePath != null) {
-        updateData['file_path'] = filePath;
-      }
-      if (fileSize != null) {
-        updateData['file_size'] = fileSize;
-      }
-
-      debugPrint('[LOG 6] Query UPDATE ke tabel arsip_surat akan dieksekusi:');
-      debugPrint('  - id: $id');
-      debugPrint('  - payload updateData: $updateData');
+      if (nomorSurat != null) updateData['nomor_surat'] = nomorSurat;
+      if (dari != null) updateData['dari'] = dari;
+      if (kepada != null) updateData['kepada'] = kepada;
+      if (noAgenda != null) updateData['no_agenda'] = noAgenda;
+      if (tingkatUrgensi != null) updateData['tingkat_urgensi'] = tingkatUrgensi;
+      if (fileUrl != null) updateData['file_url'] = fileUrl;
+      if (filePath != null) updateData['file_path'] = filePath;
+      if (fileSize != null) updateData['file_size'] = fileSize;
+      updateData['updated_at'] = DateTime.now().toIso8601String();
 
       await _client.from(_tableName).update(updateData).eq('id', id);
 
-      // Delete old file from storage if updated and requested
       if (oldFilePathToDelete != null &&
           oldFilePathToDelete.isNotEmpty &&
           filePath != null &&
@@ -107,11 +158,12 @@ class ArsipSuratService {
         }
       }
     } catch (e) {
-      debugPrint('[LOG 6] Query UPDATE GAGAL: $e');
+      debugPrint('[LOG ERR] Gagal memperbarui arsip surat ($id): $e');
       throw Exception('Gagal memperbarui arsip surat: $e');
     }
   }
 
+  /// Method backward compatibility untuk memperbarui status pengiriman/disposisi
   static Future<void> updateStatusPengiriman({
     required String id,
     required String status,
@@ -124,45 +176,44 @@ class ArsipSuratService {
 
       await _client.from(_tableName).update({
         'deskripsi': updatedDeskripsi,
+        'status_global': status,
+        'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', id);
     } catch (e) {
+      debugPrint('[LOG ERR] Gagal memperbarui status pengiriman: $e');
       throw Exception('Gagal memperbarui status pengiriman: $e');
     }
   }
 
+  /// Soft delete arsip surat
   static Future<void> hapusArsip({
     required String id,
     required String filePath,
   }) async {
     try {
-      // 1. Delete from database
-      await _client.from(_tableName).delete().eq('id', id);
-
-      // 2. Remove file from storage
-      if (filePath.isNotEmpty) {
-        try {
-          await _client.storage.from(_bucketName).remove([filePath]);
-        } catch (storageError) {
-          debugPrint('Gagal menghapus berkas fisik dari storage: $storageError');
-        }
-      }
+      final user = _client.auth.currentUser;
+      // Soft delete: update deleted_at and deleted_by
+      await _client.from(_tableName).update({
+        'deleted_at': DateTime.now().toIso8601String(),
+        'deleted_by': user?.id,
+      }).eq('id', id);
+      debugPrint('[LOG SUCCESS] Surat ($id) telah di-soft-delete');
     } catch (e) {
+      debugPrint('[LOG ERR] Gagal menghapus arsip surat: $e');
       throw Exception('Gagal menghapus arsip surat: $e');
     }
   }
 
+  /// Mengunggah berkas fisik surat ke Supabase Storage
   static Future<Map<String, String>> uploadBerkasAsli({
     required String fileName,
     required Uint8List fileBytes,
     required String mimeType,
   }) async {
     try {
-      debugPrint('[LOG 3] Method upload berkas asli dipanggil: filename=$fileName, bytesLength=${fileBytes.length}, mimeType=$mimeType');
-      // Create clean and unique file path
       final cleanExt = fileName.split('.').last.toLowerCase();
       final storagePath = 'surat_masuk_${DateTime.now().millisecondsSinceEpoch}.$cleanExt';
 
-      debugPrint('[LOG 4] Upload ke Supabase Storage dimulai: path=$storagePath');
       await _client.storage.from(_bucketName).uploadBinary(
             storagePath,
             fileBytes,
@@ -173,14 +224,12 @@ class ArsipSuratService {
           );
 
       final fileUrl = _client.storage.from(_bucketName).getPublicUrl(storagePath);
-      debugPrint('[LOG 4] Upload ke Supabase Storage berhasil: publicUrl=$fileUrl');
-
       return {
         'file_url': fileUrl,
         'file_path': storagePath,
       };
     } catch (e) {
-      debugPrint('[LOG 4] Upload ke Supabase Storage GAGAL: $e');
+      debugPrint('[LOG ERR] Upload berkas ke storage gagal: $e');
       throw Exception('Gagal mengunggah berkas ke storage: $e');
     }
   }

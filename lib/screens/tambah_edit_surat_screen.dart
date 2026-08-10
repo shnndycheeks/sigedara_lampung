@@ -30,9 +30,9 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
   
   DateTime? _selectedTanggal;
   String _selectedUrgensi = 'Biasa';
-  String _selectedKategori = 'Umum';
+  String _selectedKategori = 'Keuangan';
   String _penerimaLevel = 'Bapak Kepala Biro Umum';
-  List<String> _selectedDiteruskan = ['Kabag. Tata Usaha', 'Kabag. Rumah Tangga'];
+  List<String> _selectedDiteruskan = [];
 
   // File variables
   String? _pickedFileName;
@@ -61,7 +61,9 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
       _selectedUrgensi = ['Biasa', 'Segera', 'Sangat Segera'].contains(e.tingkatUrgensi)
           ? e.tingkatUrgensi
           : 'Biasa';
-      _selectedKategori = e.kategori;
+      _selectedKategori = const ['Keuangan', 'Rumah Tangga', 'Tata Usaha'].contains(e.kategori)
+          ? e.kategori
+          : 'Keuangan';
       _pickedFileName = e.filePath.split('/').last;
       _pickedMimeType = e.fileUrl.toLowerCase().contains('.pdf') ? 'application/pdf' : 'image/jpeg';
       _isImage = !_pickedMimeType!.contains('pdf');
@@ -626,14 +628,16 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
                           const Text('Kategori Arsip', style: AppTextStyles.label),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
-                            initialValue: _selectedKategori,
+                            initialValue: const ['Keuangan', 'Rumah Tangga', 'Tata Usaha'].contains(_selectedKategori)
+                                ? _selectedKategori
+                                : 'Keuangan',
                             decoration: const InputDecoration(
                               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'Umum', child: Text('Umum')),
                               DropdownMenuItem(value: 'Keuangan', child: Text('Keuangan')),
-                              DropdownMenuItem(value: 'Kepegawaian', child: Text('Kepegawaian')),
+                              DropdownMenuItem(value: 'Rumah Tangga', child: Text('Rumah Tangga')),
+                              DropdownMenuItem(value: 'Tata Usaha', child: Text('Tata Usaha')),
                             ],
                             onChanged: (val) {
                               if (val != null) {

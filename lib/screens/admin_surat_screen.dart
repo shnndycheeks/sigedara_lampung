@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/arsip_surat_model.dart';
+import '../models/surat_progress_model.dart';
+import '../services/progress_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/arsip_surat_service.dart';
@@ -24,7 +26,7 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
   String? _error;
   String _searchQuery = '';
 
-  final List<String> _kategoriFilters = ['Semua', 'Umum', 'Keuangan', 'Kepegawaian'];
+  final List<String> _kategoriFilters = ['Semua', 'Keuangan', 'Rumah Tangga', 'Tata Usaha'];
 
   @override
   void initState() {
@@ -369,13 +371,39 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
                   style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
-                    StatusBadge(
-                      label: arsip.tingkatUrgensi.toUpperCase(),
-                      color: _getUrgensiColor(arsip.tingkatUrgensi),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        StatusBadge(
+                          label: arsip.tingkatUrgensi.toUpperCase(),
+                          color: _getUrgensiColor(arsip.tingkatUrgensi),
+                        ),
+                        const SizedBox(width: 6),
+                        FutureBuilder<SuratProgressModel?>(
+                          future: ProgressService.getProgressSurat(arsip.id),
+                          builder: (context, snapshot) {
+                            final percent = snapshot.data?.progressPercent ?? 0.0;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${percent.toStringAsFixed(0)}% Selesai',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
                     Text(
                       _formatTanggal(arsip.tanggalSurat),
                       style: AppTextStyles.caption,

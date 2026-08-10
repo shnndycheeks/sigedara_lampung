@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'disposisi_model.dart';
 
 class ArsipSurat {
   final String id;
@@ -8,46 +9,61 @@ class ArsipSurat {
   final String fileUrl;
   final String filePath;
   final int? fileSize;
+  final String? mimeType;
+  final String? extension;
+  final String? checksum;
   final String? uploadedBy;
   final String? createdBy;
+  final String statusGlobal; // 'menunggu_karo', 'dalam_proses', 'selesai', 'dibatalkan'
   final DateTime createdAt;
+  final DateTime? deletedAt;
+  final String? deletedBy;
 
-  // Extracted metadata fields from deskripsi
+  // Metadata Fields
   final String nomorSurat;
   final DateTime? tanggalSurat;
+  final DateTime? tanggalDiterima;
   final String dari;
   final String kepada;
-  final String instruksiDisposisi;
+  final String noAgenda;
   final String tingkatUrgensi;
-  final String statusPengiriman;
 
-  List<String> get diteruskanKepada {
-    final raw = deskripsi['diteruskan_kepada'];
-    if (raw is List) {
-      return raw.map((e) => e.toString()).toList();
-    } else if (raw is String && raw.isNotEmpty) {
-      return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  // Relational Disposisi History (populated when joined)
+  final List<DisposisiModel> listDisposisi;
+
+  String get statusLabel {
+    switch (statusGlobal) {
+      case 'menunggu_karo':
+        return 'Menunggu Disposisi Kepala Biro';
+      case 'dalam_proses':
+        if (listDisposisi.isNotEmpty) {
+          final pendingDisposisi = listDisposisi.where((d) => d.statusDisposisi == 'pending' || d.statusDisposisi == 'dibaca');
+          if (pendingDisposisi.isNotEmpty) {
+            return 'Menunggu ${pendingDisposisi.first.kepadaJabatan}';
+          }
+        }
+        return 'Sedang Diproses';
+      case 'selesai':
+        return 'Selesai';
+      case 'dibatalkan':
+        return 'Dibatalkan';
+      default:
+        return 'Menunggu Disposisi Kepala Biro';
     }
-    return [];
   }
 
+  // Backward compatibility getters for UI screens
   String get penerimaLevel {
+    if (listDisposisi.isNotEmpty) {
+      return listDisposisi.last.kepadaJabatan;
+    }
     return deskripsi['penerima_level']?.toString() ?? 'Bapak Kepala Biro Umum';
   }
 
-  String get noAgenda {
-    return deskripsi['no_agenda']?.toString() ?? '-';
-  }
-
-  DateTime? get tanggalDiterima {
-    final raw = deskripsi['tanggal_diterima'];
-    if (raw != null && raw.toString().isNotEmpty) {
-      return DateTime.tryParse(raw.toString());
-    }
-    return null;
-  }
-
   List<Map<String, dynamic>> get riwayatDisposisi {
+    if (listDisposisi.isNotEmpty) {
+      return listDisposisi.map((d) => d.toJson()).toList();
+    }
     final raw = deskripsi['riwayat_disposisi'];
     if (raw is List) {
       return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -55,27 +71,20 @@ class ArsipSurat {
     return [];
   }
 
-  String get statusLabel {
-    switch (statusPengiriman) {
-      case 'menunggu_karo':
-      case 'belum_dikirim_karo':
-        return 'Menunggu Disposisi Kepala Biro';
-      case 'menunggu_kabag':
-      case 'disposisi_kabag':
-        return 'Menunggu Disposisi Kabag Rumah Tangga';
-      case 'menunggu_katim':
-      case 'disposisi_katim':
-        final list = diteruskanKepada;
-        if (list.isNotEmpty) {
-          return 'Menunggu ${list.first}';
-        }
-        return 'Menunggu Ka Tim Kerja';
-      case 'selesai':
-      case 'disetujui_katim':
-        return 'Selesai';
-      default:
-        return 'Menunggu Disposisi Kepala Biro';
+  String get instruksiDisposisi {
+    if (listDisposisi.isNotEmpty) {
+      return listDisposisi.last.instruksi ?? deskripsi['instruksi_disposisi']?.toString() ?? '';
     }
+    return '';
+  }
+
+  String get statusPengiriman => statusGlobal;
+
+  List<String> get diteruskanKepada {
+    if (listDisposisi.isNotEmpty) {
+      return listDisposisi.map((d) => d.kepadaJabatan).toSet().toList();
+    }
+    return [];
   }
 
   ArsipSurat({
@@ -86,20 +95,28 @@ class ArsipSurat {
     required this.fileUrl,
     required this.filePath,
     this.fileSize,
+    this.mimeType,
+    this.extension,
+    this.checksum,
     this.uploadedBy,
     this.createdBy,
+    this.statusGlobal = 'menunggu_karo',
     required this.createdAt,
+    this.deletedAt,
+    this.deletedBy,
     required this.nomorSurat,
     this.tanggalSurat,
+    this.tanggalDiterima,
     required this.dari,
     required this.kepada,
-    required this.instruksiDisposisi,
+    this.noAgenda = '-',
     required this.tingkatUrgensi,
-    required this.statusPengiriman,
+    this.listDisposisi = const [],
+    String? instruksiDisposisi,
+    String? statusPengiriman,
   });
 
   factory ArsipSurat.fromJson(Map<String, dynamic> json) {
-    // Parse deskripsi JSON robustly (handles both Map and String formats)
     Map<String, dynamic> rawDeskripsi = {};
     final descRaw = json['deskripsi'];
     if (descRaw is Map) {
@@ -113,30 +130,50 @@ class ArsipSurat {
       } catch (_) {}
     }
 
-    final tglRaw = rawDeskripsi['tanggal_surat'];
-    DateTime? parsedTgl;
-    if (tglRaw != null && tglRaw.toString().isNotEmpty) {
-      parsedTgl = DateTime.tryParse(tglRaw.toString());
+    final tglSuratRaw = json['tanggal_surat'] ?? rawDeskripsi['tanggal_surat'];
+    DateTime? parsedTglSurat;
+    if (tglSuratRaw != null && tglSuratRaw.toString().isNotEmpty) {
+      parsedTglSurat = DateTime.tryParse(tglSuratRaw.toString());
+    }
+
+    final tglDiterimaRaw = json['tanggal_diterima'] ?? rawDeskripsi['tanggal_diterima'];
+    DateTime? parsedTglDiterima;
+    if (tglDiterimaRaw != null && tglDiterimaRaw.toString().isNotEmpty) {
+      parsedTglDiterima = DateTime.tryParse(tglDiterimaRaw.toString());
+    }
+
+    List<DisposisiModel> disposisiList = [];
+    if (json['disposisi'] is List) {
+      disposisiList = (json['disposisi'] as List)
+          .map((e) => DisposisiModel.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
     }
 
     return ArsipSurat(
       id: json['id'] ?? '',
-      judul: json['judul'] ?? '',
-      kategori: json['kategori'] ?? 'Umum',
+      judul: json['judul'] ?? json['perihal'] ?? rawDeskripsi['judul'] ?? '',
+      kategori: json['kategori'] ?? 'Keuangan',
       deskripsi: rawDeskripsi,
       fileUrl: json['file_url'] ?? '',
       filePath: json['file_path'] ?? '',
       fileSize: json['file_size'] != null ? int.tryParse(json['file_size'].toString()) : null,
+      mimeType: json['mime_type']?.toString(),
+      extension: json['extension']?.toString(),
+      checksum: json['checksum']?.toString(),
       uploadedBy: json['uploaded_by']?.toString(),
       createdBy: json['created_by']?.toString(),
+      statusGlobal: json['status_global'] ?? rawDeskripsi['status_pengiriman'] ?? 'menunggu_karo',
       createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
-      nomorSurat: rawDeskripsi['nomor_surat']?.toString() ?? '',
-      tanggalSurat: parsedTgl,
-      dari: rawDeskripsi['dari']?.toString() ?? '',
-      kepada: rawDeskripsi['kepada']?.toString() ?? '',
-      instruksiDisposisi: rawDeskripsi['instruksi_disposisi']?.toString() ?? '',
-      tingkatUrgensi: rawDeskripsi['tingkat_urgensi']?.toString() ?? 'Biasa',
-      statusPengiriman: rawDeskripsi['status_pengiriman']?.toString() ?? rawDeskripsi['status_disposisi']?.toString() ?? 'belum_dikirim_karo',
+      deletedAt: json['deleted_at'] != null ? DateTime.tryParse(json['deleted_at'].toString()) : null,
+      deletedBy: json['deleted_by']?.toString(),
+      nomorSurat: json['nomor_surat'] ?? rawDeskripsi['nomor_surat'] ?? '',
+      tanggalSurat: parsedTglSurat,
+      tanggalDiterima: parsedTglDiterima,
+      dari: json['dari'] ?? rawDeskripsi['dari'] ?? '',
+      kepada: json['kepada'] ?? rawDeskripsi['kepada'] ?? '',
+      noAgenda: json['no_agenda'] ?? rawDeskripsi['no_agenda'] ?? '-',
+      tingkatUrgensi: json['tingkat_urgensi'] ?? rawDeskripsi['tingkat_urgensi'] ?? 'Biasa',
+      listDisposisi: disposisiList,
     );
   }
 
@@ -149,8 +186,18 @@ class ArsipSurat {
       'file_url': fileUrl,
       'file_path': filePath,
       'file_size': fileSize,
+      'mime_type': mimeType,
+      'extension': extension,
+      'checksum': checksum,
       'uploaded_by': uploadedBy,
-      'created_by': createdBy,
+      'status_global': statusGlobal,
+      'nomor_surat': nomorSurat,
+      'tanggal_surat': tanggalSurat?.toIso8601String(),
+      'tanggal_diterima': tanggalDiterima?.toIso8601String(),
+      'dari': dari,
+      'kepada': kepada,
+      'no_agenda': noAgenda,
+      'tingkat_urgensi': tingkatUrgensi,
       'created_at': createdAt.toIso8601String(),
     };
   }

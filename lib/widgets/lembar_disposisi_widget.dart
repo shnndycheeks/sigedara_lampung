@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/arsip_surat_model.dart';
+import '../models/disposisi_model.dart';
 
 String _formatTanggalIndo(DateTime? dt) {
   if (dt == null) return '-';
@@ -11,6 +13,94 @@ String _formatTanggalIndo(DateTime? dt) {
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
   return '${dt.day} ${bulan[dt.month - 1]} ${dt.year}';
+}
+
+Map<String, String> getSignatureDetailsFor(String? rawJabatan) {
+  final jabatan = (rawJabatan ?? '').toLowerCase().trim();
+
+  if (jabatan.contains('tata usaha') || jabatan.contains('tu')) {
+    return {
+      'title': 'KABAG. TATA USAHA',
+      'nama': 'H. BENNY DARYALIS, S.H., M.H.',
+      'pangkat': 'Pembina Tk. I',
+      'nip': 'NIP. 19720315 199803 1 004',
+      'ttd_asset': 'assets/signatures/ttd_kabag_tu.png',
+    };
+  } else if (jabatan.contains('rumah tangga') || jabatan.contains('rt')) {
+    return {
+      'title': 'KABAG. RUMAH TANGGA',
+      'nama': 'ALVIRDIAN OKTAFIANUS, S.E., S.T., M.M.',
+      'pangkat': 'Pembina',
+      'nip': 'NIP. 19751004 201001 1 002',
+      'ttd_asset': 'assets/signatures/ttd_kabag_rt.png',
+    };
+  } else if (jabatan.contains('administrasi') || jabatan.contains('aset') || jabatan.contains('keuangan')) {
+    return {
+      'title': 'KABAG. KEUANGAN DAN ASET',
+      'nama': 'DEDI AFRIZAL, S.E., M.Si.',
+      'pangkat': 'Pembina',
+      'nip': 'NIP. 19780812 200501 1 008',
+      'ttd_asset': 'assets/signatures/ttd_kabag_aset.png',
+    };
+  } else if (jabatan.contains('sespri')) {
+    return {
+      'title': 'SESPRI KEPALA BIRO UMUM',
+      'nama': '',
+      'pangkat': 'Penata',
+      'nip': 'NIP. 19910520 201402 1 001',
+      'ttd_asset': 'assets/signatures/ttd_sespri.png',
+    };
+  } else if (jabatan.contains('biro') || jabatan.contains('karo')) {
+    return {
+      'title': 'KEPALA BIRO UMUM',
+      'nama': 'MUHAMMAD YULIARDI, S.STP., M.Si.',
+      'pangkat': 'Pembina Utama Muda',
+      'nip': 'NIP. 198007201999121002',
+      'ttd_asset': 'assets/signatures/ttd_karo.png',
+    };
+  } else {
+    debugPrint('[LOG WARNING] Unknown dariJabatan for signature: "$rawJabatan". Fallback to Karo.');
+    return {
+      'title': 'KEPALA BIRO UMUM',
+      'nama': 'MUHAMMAD YULIARDI, S.STP., M.Si.',
+      'pangkat': 'Pembina Utama Muda',
+      'nip': 'NIP. 198007201999121002',
+      'ttd_asset': 'assets/signatures/ttd_karo.png',
+    };
+  }
+}
+
+bool _isMatch(String opt, DisposisiModel d) {
+  final cleanOpt = opt.toLowerCase()
+      .replaceAll('kepala bagian', 'kabag')
+      .replaceAll('katim', 'ka tim kerja')
+      .replaceAll('.', '')
+      .replaceAll(' ', '')
+      .trim();
+
+  final cleanJabatan = d.kepadaJabatan.toLowerCase()
+      .replaceAll('kepala bagian', 'kabag')
+      .replaceAll('katim', 'ka tim kerja')
+      .replaceAll('.', '')
+      .replaceAll(' ', '')
+      .trim();
+
+  final cleanRole = d.kepadaRole.toLowerCase()
+      .replaceAll('_', '')
+      .replaceAll('.', '')
+      .replaceAll(' ', '')
+      .trim();
+
+  if (cleanJabatan == cleanOpt) return true;
+  if (cleanJabatan.contains(cleanOpt) || cleanOpt.contains(cleanJabatan)) return true;
+
+  // Specific role fallbacks
+  if (cleanOpt.contains('kabagrumahtangga') && cleanRole.contains('kabagrt')) return true;
+  if (cleanOpt.contains('kabagtatausaha') && cleanRole.contains('kabagtu')) return true;
+  if (cleanOpt.contains('kabagkeuangandanaset') && cleanRole.contains('kabagaset')) return true;
+  if (cleanOpt.contains('kabagadministrasidanaset') && cleanRole.contains('kabagaset')) return true;
+
+  return false;
 }
 
 class LembarDisposisiWidget extends StatefulWidget {
@@ -34,21 +124,52 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
   late TextEditingController _instruksiCtrl;
   late String _penerimaLevel;
 
+  void _loadLevelData(String level) {
+    final cleanLevel = level.toLowerCase();
+
+    if (cleanLevel.contains('biro') || cleanLevel.contains('karo') || cleanLevel.contains('bapak kepala') || cleanLevel.isEmpty) {
+      _penerimaLevel = 'Bapak Kepala Biro Umum';
+      // Load Karo's disposition from database history if exists
+      final karoDisposisi = widget.surat.listDisposisi.where((d) =>
+          d.dariJabatan.toLowerCase().contains('biro') ||
+          d.dariJabatan.toLowerCase().contains('karo')).toList();
+      if (karoDisposisi.isNotEmpty) {
+        _diteruskan = karoDisposisi.map((d) => d.kepadaJabatan).toList();
+        _instruksiCtrl.text = karoDisposisi.first.instruksi ?? '';
+      } else {
+        _diteruskan = [];
+        _instruksiCtrl.text = '';
+      }
+    } else {
+      _penerimaLevel = 'Kepala Bagian Rumah Tangga';
+      // Load Kabag's disposition from database history if exists
+      final kabagDisposisi = widget.surat.listDisposisi.where((d) =>
+          d.dariJabatan.toLowerCase().contains('kabag') ||
+          d.dariJabatan.toLowerCase().contains('bagian')).toList();
+      if (kabagDisposisi.isNotEmpty) {
+        _diteruskan = kabagDisposisi.map((d) => d.kepadaJabatan).toList();
+        _instruksiCtrl.text = kabagDisposisi.first.instruksi ?? '';
+      } else {
+        // Fallback default draft for Kabag
+        _diteruskan = ['Ka. Tim Kerja . Urusan Dalam'];
+        _instruksiCtrl.text = '';
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _diteruskan = List<String>.from(widget.surat.diteruskanKepada);
-    _instruksiCtrl = TextEditingController(text: widget.surat.instruksiDisposisi);
-    _penerimaLevel = widget.surat.penerimaLevel;
+    _instruksiCtrl = TextEditingController();
+    _loadLevelData('Bapak Kepala Biro Umum'); // Default to Karo level!
   }
 
   @override
   void didUpdateWidget(covariant LembarDisposisiWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.surat != widget.surat) {
-      _diteruskan = List<String>.from(widget.surat.diteruskanKepada);
-      _instruksiCtrl.text = widget.surat.instruksiDisposisi;
-      _penerimaLevel = widget.surat.penerimaLevel;
+    if (oldWidget.surat.id != widget.surat.id ||
+        oldWidget.surat.listDisposisi.length != widget.surat.listDisposisi.length) {
+      _loadLevelData(_penerimaLevel);
     }
   }
 
@@ -67,6 +188,92 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
     return l.contains('biro') || l.contains('karo') || l.contains('bapak kepala');
   }
 
+  /// Helper untuk merender TTD PNG snapshot dari URL / Asset / Supabase Storage
+  Widget _buildSignatureImage(String ttdPath, {double width = 90, double height = 45}) {
+    if (ttdPath.isEmpty) {
+      return _buildFallbackSignature(width, height);
+    }
+
+    if (ttdPath.startsWith('http://') || ttdPath.startsWith('https://')) {
+      return Image.network(
+        ttdPath,
+        width: width,
+        height: height,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildFallbackSignature(width, height),
+      );
+    } else if (ttdPath.startsWith('assets/')) {
+      return Image.asset(
+        ttdPath,
+        width: width,
+        height: height,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildFallbackSignature(width, height),
+      );
+    } else {
+      // Path Supabase Storage (misal: 'signatures/default/ttd_karo.png')
+      return FutureBuilder<String?>(
+        future: _getSignedSignatureUrl(ttdPath),
+        builder: (context, snapshot) {
+          final signedUrl = snapshot.data;
+          if (signedUrl != null && signedUrl.isNotEmpty) {
+            return Image.network(
+              signedUrl,
+              width: width,
+              height: height,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => _buildFallbackSignature(width, height),
+            );
+          }
+          return _buildFallbackSignature(width, height);
+        },
+      );
+    }
+  }
+
+  Future<String?> _getSignedSignatureUrl(String path) async {
+    try {
+      final cleanPath = path.startsWith('signatures/') ? path.replaceFirst('signatures/', '') : path;
+      return await Supabase.instance.client.storage
+          .from('signatures')
+          .createSignedUrl(cleanPath, 3600);
+    } catch (_) {
+      try {
+        return await Supabase.instance.client.storage
+            .from('arsip-surat')
+            .createSignedUrl(path, 3600);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  Widget _buildFallbackSignature(double width, double height) {
+    return Container(
+      width: width,
+      height: height,
+      alignment: Alignment.center,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.draw_rounded, size: 14, color: Colors.black54),
+          SizedBox(width: 4),
+          Text(
+            '[ TTD Digital ]',
+            style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dapatkan daftar disposisi terstruktur berdasarkan silsilah tree
+  List<DisposisiModel> get _sortedDisposisiList {
+    final list = List<DisposisiModel>.from(widget.surat.listDisposisi);
+    list.sort((a, b) => a.assignedAt.compareTo(b.assignedAt));
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isKaro = _isKepalaBiroLevel(_penerimaLevel);
@@ -74,173 +281,298 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
     final optionsKaro = [
       'Kabag. Tata Usaha',
       'Kabag. Rumah Tangga',
-      'Kabag. Administrasi dan Aset',
-      'Sespri',
+      'Kabag. Keuangan dan Aset',
     ];
 
     final optionsKabag = [
       'Ka. Tim Kerja . Urusan Dalam',
-      'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung/Kantor',
+      'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung 1',
+      'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung 2',
       'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Kendaraan',
     ];
 
     final currentOptions = isKaro ? optionsKaro : optionsKabag;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFDFBF4), // Authentic Cream Paper Color
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.black, width: 2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x20000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // KOP SURAT
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/logo_biro_noBG.png',
-                width: 60,
-                height: 60,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black, width: 1.5),
-                  ),
-                  child: const Center(
-                    child: Text('LAMPUNG', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  children: const [
-                    Text(
-                      'PEMERINTAHAN PROVINSI LAMPUNG',
-                      style: TextStyle(
-                        fontFamily: 'Serif',
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                        letterSpacing: 0.3,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'SEKRETARIAT DAERAH',
-                      style: TextStyle(
-                        fontFamily: 'Serif',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.black,
-                        letterSpacing: 0.8,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Jl. R.W. Monginsidi No. 69 Telp. (0721) 481166',
-                      style: TextStyle(fontSize: 10, color: Colors.black),
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      'TELUKBETUNG 35215',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
+    // Ambil disposisi aktif paling akhir untuk TTD
+    final historyList = _sortedDisposisiList;
+    final lastDisposisi = historyList.isNotEmpty ? historyList.last : null;
+
+    final sig = getSignatureDetailsFor(lastDisposisi?.dariJabatan);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 650;
+        final paperWidget = Container(
+          width: isDesktop ? double.infinity : 650,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDFBF4), // Authentic Cream Paper Color
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.black, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x20000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
               ),
             ],
           ),
-
-          const SizedBox(height: 8),
-
-          // DOUBLE LINE DIVIDER
-          Column(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(height: 2.5, color: Colors.black),
-              const SizedBox(height: 2),
-              Container(height: 1.0, color: Colors.black),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // TITLE
-          const Text(
-            'LEMBAR DIPOSISI',
-            style: TextStyle(
-              fontFamily: 'Serif',
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
-              color: Colors.black,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            isKaro
-                ? 'Berdasarkan Keputusan Mendagri Nomor 69 Tahun 2000'
-                : 'Berdasarkan Keputusan Mendagri Nomor 47 Tahun 2000',
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontStyle: FontStyle.italic,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 10),
-          Container(height: 1.5, color: Colors.black),
-
-          // GRID META INFO TABLE
-          _buildTableRow('Surat dari :', widget.surat.dari, 'Diterima :', widget.surat.noAgenda != '-' ? widget.surat.noAgenda : ' '),
-          Container(height: 1, color: Colors.black),
-          _buildTableRow(
-            'Tanggal Surat :',
-            _formatTanggalIndo(widget.surat.tanggalSurat),
-            'Tanggal :',
-            _formatTanggalIndo(widget.surat.tanggalDiterima ?? widget.surat.createdAt),
-          ),
-          Container(height: 1, color: Colors.black),
-          _buildTableRow('Nomor Surat :', widget.surat.nomorSurat, '', ''),
-          Container(height: 1, color: Colors.black),
-          _buildSingleRow('Perihal / Isi ringkas :', widget.surat.judul),
-          Container(height: 1.5, color: Colors.black),
-
-          // MIDDLE SECTION: 2 COLUMNS (Interactive Typing & Checkbox Selection)
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // LEFT COLUMN: DISPOSISI / INSTRUKSI (Direct Typing Area)
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
+              // KOP SURAT
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/logo_biro_noBG.png',
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 1.5),
+                      ),
+                      child: const Center(
+                        child: Text('LAMPUNG', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text(
+                          'PEMERINTAHAN PROVINSI LAMPUNG',
+                          style: TextStyle(
+                            fontFamily: 'Serif',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            letterSpacing: 0.3,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'SEKRETARIAT DAERAH',
+                          style: TextStyle(
+                            fontFamily: 'Serif',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black,
+                            letterSpacing: 0.8,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Jl. R.W. Monginsidi No. 69 Telp. (0721) 481166',
+                          style: TextStyle(fontSize: 10, color: Colors.black),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          'TELUKBETUNG 35215',
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // DOUBLE LINE DIVIDER
+              Column(
+                children: [
+                  Container(height: 2.5, color: Colors.black),
+                  const SizedBox(height: 2),
+                  Container(height: 1.0, color: Colors.black),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // TITLE
+              const Text(
+                'LEMBAR DIPOSISI',
+                style: TextStyle(
+                  fontFamily: 'Serif',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: Colors.black,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                isKaro
+                    ? 'Berdasarkan Keputusan Mendagri Nomor 69 Tahun 2000'
+                    : 'Berdasarkan Keputusan Mendagri Nomor 47 Tahun 2000',
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 10),
+              Container(height: 1.5, color: Colors.black),
+
+              // GRID META INFO TABLE
+              _buildTableRow('Surat dari :', widget.surat.dari, 'Diterima :', widget.surat.noAgenda != '-' ? widget.surat.noAgenda : ' '),
+              Container(height: 1, color: Colors.black),
+              _buildTableRow(
+                'Tanggal Surat :',
+                _formatTanggalIndo(widget.surat.tanggalSurat),
+                'Tanggal :',
+                _formatTanggalIndo(widget.surat.tanggalDiterima ?? widget.surat.createdAt),
+              ),
+              Container(height: 1, color: Colors.black),
+              _buildTableRow('Nomor Surat :', widget.surat.nomorSurat, '', ''),
+              Container(height: 1, color: Colors.black),
+              _buildSingleRow('Perihal / Isi ringkas :', widget.surat.judul),
+              Container(height: 1.5, color: Colors.black),
+
+              // MIDDLE SECTION: 2 COLUMNS (Interactive Typing & Checkbox Selection)
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // LEFT COLUMN: DISPOSISI / INSTRUKSI (Direct Typing Area & Multi-Tier History)
+                    Expanded(
+                      flex: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Disposisi / Instruksi :',
+                                  style: TextStyle(
+                                    fontFamily: 'Serif',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                if (widget.isEditable)
+                                  const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFFB45309)),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            if (widget.isEditable)
+                              TextField(
+                                controller: _instruksiCtrl,
+                                maxLines: 6,
+                                style: const TextStyle(
+                                  fontFamily: 'Serif',
+                                  fontSize: 12,
+                                  color: Colors.black,
+                                  height: 1.4,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'Klik di sini untuk mengetik catatan instruksi pimpinan...',
+                                  hintStyle: TextStyle(fontStyle: FontStyle.italic, fontSize: 11, color: Colors.black38),
+                                  border: InputBorder.none,
+                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF59E0B), width: 1.5)),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (val) {
+                                  // Keep typing state local without triggering parent full-screen reload per character
+                                },
+                                onEditingComplete: () => _notifyChanges(),
+                              )
+                            else if (historyList.isNotEmpty)
+                              ...historyList.map((disp) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '${disp.dariJabatan} ➔ ${disp.kepadaJabatan}',
+                                            style: const TextStyle(
+                                              fontFamily: 'Serif',
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFB45309),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          _buildStatusBadge(disp.statusDisposisi),
+                                        ],
+                                      ),
+                                      if (disp.instruksi != null && disp.instruksi!.isNotEmpty)
+                                        Text(
+                                          disp.instruksi!,
+                                          style: const TextStyle(
+                                            fontFamily: 'Serif',
+                                            fontSize: 11.5,
+                                            color: Colors.black,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      if (disp.catatan != null && disp.catatan!.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2.0),
+                                          child: Text(
+                                            'Catatan: ${disp.catatan!}',
+                                            style: const TextStyle(
+                                              fontFamily: 'Serif',
+                                              fontSize: 11,
+                                              fontStyle: FontStyle.italic,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                      const Divider(height: 8, thickness: 0.5, color: Colors.black26),
+                                    ],
+                                  ),
+                                );
+                              })
+                            else
+                              Text(
+                                widget.surat.instruksiDisposisi.isNotEmpty
+                                    ? widget.surat.instruksiDisposisi
+                                    : '(Belum ada instruksi disposisi)',
+                                style: TextStyle(
+                                  fontFamily: 'Serif',
+                                  fontSize: 12,
+                                  fontStyle: widget.surat.instruksiDisposisi.isEmpty ? FontStyle.italic : FontStyle.normal,
+                                  color: widget.surat.instruksiDisposisi.isEmpty ? Colors.black45 : Colors.black,
+                                  height: 1.4,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // VERTICAL DIVIDER
+                    Container(width: 1.5, color: Colors.black),
+
+                    // RIGHT COLUMN: DITERUSKAN KEPADA YTH (Direct Clickable Checkboxes)
+                    Expanded(
+                      flex: 5,
+                      child: Container(
+                        padding: const EdgeInsets.all(10.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Disposisi / Instruksi :',
+                              'Diteruskan Kepada Yth. :',
                               style: TextStyle(
                                 fontFamily: 'Serif',
                                 fontSize: 12,
@@ -248,116 +580,54 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
                                 color: Colors.black,
                               ),
                             ),
-                            if (widget.isEditable)
-                              const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFFB45309)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        if (widget.isEditable)
-                          TextField(
-                            controller: _instruksiCtrl,
-                            maxLines: 6,
-                            style: const TextStyle(
-                              fontFamily: 'Serif',
-                              fontSize: 12,
-                              color: Colors.black,
-                              height: 1.4,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Klik di sini untuk mengetik catatan instruksi pimpinan...',
-                              hintStyle: TextStyle(fontStyle: FontStyle.italic, fontSize: 11, color: Colors.black38),
-                              border: InputBorder.none,
-                              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFF59E0B), width: 1.5)),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                            onChanged: (_) => _notifyChanges(),
-                          )
-                        else
-                          Text(
-                            widget.surat.instruksiDisposisi.isNotEmpty
-                                ? widget.surat.instruksiDisposisi
-                                : '(Belum ada instruksi disposisi)',
-                            style: TextStyle(
-                              fontFamily: 'Serif',
-                              fontSize: 12,
-                              fontStyle: widget.surat.instruksiDisposisi.isEmpty ? FontStyle.italic : FontStyle.normal,
-                              color: widget.surat.instruksiDisposisi.isEmpty ? Colors.black45 : Colors.black,
-                              height: 1.4,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // VERTICAL DIVIDER
-                Container(width: 1.5, color: Colors.black),
-
-                // RIGHT COLUMN: DITERUSKAN KEPADA YTH (Direct Clickable Checkboxes)
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Diteruskan Kepada Yth. :',
-                          style: TextStyle(
-                            fontFamily: 'Serif',
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        InkWell(
-                          onTap: widget.isEditable
-                              ? () {
-                                  setState(() {
-                                    if (_isKepalaBiroLevel(_penerimaLevel)) {
-                                      _penerimaLevel = 'Kepala Bagian Rumah Tangga';
-                                      _diteruskan = ['Ka. Tim Kerja . Urusan Dalam'];
-                                    } else {
-                                      _penerimaLevel = 'Bapak Kepala Biro Umum';
-                                      _diteruskan = ['Kabag. Tata Usaha', 'Kabag. Rumah Tangga'];
+                            const SizedBox(height: 4),
+                            InkWell(
+                              onTap: widget.isEditable
+                                  ? () {
+                                      setState(() {
+                                        if (_isKepalaBiroLevel(_penerimaLevel)) {
+                                          _loadLevelData('Kepala Bagian Rumah Tangga');
+                                        } else {
+                                          _loadLevelData('Bapak Kepala Biro Umum');
+                                        }
+                                      });
+                                      _notifyChanges();
                                     }
-                                  });
-                                  _notifyChanges();
-                                }
-                              : null,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2.0),
-                            child: Row(
-                              children: [
-                                Text(
-                                  isKaro ? 'Bapak Kepala Biro Umum' : 'Kepala Bagian Rumah Tangga',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFFB45309),
-                                  ),
+                                  : null,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      isKaro ? 'Bapak Kepala Biro Umum' : 'Kabag. Rumah Tangga',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                    if (widget.isEditable) ...[
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.sync_alt, size: 12, color: Color(0xFFB45309)),
+                                    ],
+                                  ],
                                 ),
-                                if (widget.isEditable) ...[
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.sync_alt, size: 12, color: Color(0xFFB45309)),
-                                ],
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        ...currentOptions.map((opt) {
-                          final isChecked = _diteruskan.contains(opt);
+                            const SizedBox(height: 6),
+                            ...currentOptions.map((opt) {
+                              final isChecked = _diteruskan.contains(opt) || 
+                                  historyList.any((d) => _isMatch(opt, d));
+
                           return InkWell(
                             onTap: widget.isEditable
                                 ? () {
                                     setState(() {
-                                      if (isChecked) {
-                                        _diteruskan.remove(opt);
-                                      } else {
-                                        _diteruskan.add(opt);
-                                      }
+                                       if (_diteruskan.contains(opt)) {
+                                         _diteruskan.remove(opt);
+                                       } else {
+                                         _diteruskan.add(opt);
+                                       }
                                     });
                                     _notifyChanges();
                                   }
@@ -406,7 +676,8 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
 
           const SizedBox(height: 16),
 
-          // FOOTER / SIGNATURE SECTION
+          // FOOTER / SIGNATURE SECTION (SNAPSHOT TTD PNG RENDERING)
+          // FOOTER / SIGNATURE SECTION (SNAPSHOT TTD PNG RENDERING)
           Align(
             alignment: Alignment.centerRight,
             child: SizedBox(
@@ -414,7 +685,7 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
               child: Column(
                 children: [
                   Text(
-                    isKaro ? 'KEPALA BIRO UMUM' : 'KEPALA BAGIAN RUMAH TANGGA',
+                    sig['title']!,
                     style: const TextStyle(
                       fontFamily: 'Serif',
                       fontSize: 11,
@@ -423,26 +694,36 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
-                  Text(
-                    isKaro ? 'MUHAMMAD YULIARDI, S.STP., M.Si.' : 'ALVIRDIAN OKTAFIANUS, S.E., S.T., M.M.',
-                    style: const TextStyle(
-                      fontFamily: 'Serif',
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
-                      color: Colors.black,
-                    ),
-                    textAlign: TextAlign.center,
+                  const SizedBox(height: 6),
+                  
+                  // Render Snapshot TTD PNG
+                  _buildSignatureImage(
+                    lastDisposisi?.ttdPng ?? '',
                   ),
+
+                  const SizedBox(height: 6),
+                  if ((sig['nama'] ?? '').isNotEmpty)
+                    Text(
+                      sig['nama']!,
+                      style: const TextStyle(
+                        fontFamily: 'Serif',
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    )
+                  else
+                    const SizedBox(height: 16),
                   const SizedBox(height: 2),
                   Text(
-                    isKaro ? 'Pembina Utama Muda' : 'Pembina',
+                    sig['pangkat']!,
                     style: const TextStyle(fontSize: 10, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
                   Text(
-                    isKaro ? 'NIP. 198007201999121002' : 'NIP. 19751004 201001 1 002',
+                    sig['nip']!,
                     style: const TextStyle(fontSize: 10, color: Colors.black),
                     textAlign: TextAlign.center,
                   ),
@@ -451,6 +732,71 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
             ),
           ),
         ],
+      ),
+    );
+
+    if (isDesktop) {
+      return paperWidget;
+    } else {
+      return ClipRect(
+        child: InteractiveViewer(
+          minScale: 1.0,
+          maxScale: 3.0,
+          clipBehavior: Clip.hardEdge,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.contain,
+              alignment: Alignment.topCenter,
+              child: SizedBox(
+                width: 650,
+                child: paperWidget,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+  },
+);
+}
+
+  Widget _buildStatusBadge(String status) {
+    Color bg;
+    String label;
+    switch (status) {
+      case 'pending':
+        bg = Colors.orange;
+        label = 'Pending';
+        break;
+      case 'dibaca':
+        bg = Colors.blue;
+        label = 'Dibaca';
+        break;
+      case 'diproses':
+        bg = Colors.indigo;
+        label = 'Diproses';
+        break;
+      case 'selesai':
+        bg = Colors.green;
+        label = 'Selesai';
+        break;
+      case 'ditarik':
+        bg = Colors.grey;
+        label = 'Ditarik';
+        break;
+      default:
+        bg = Colors.orange;
+        label = status;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
       ),
     );
   }
@@ -539,19 +885,24 @@ class _LembarDisposisiWidgetState extends State<LembarDisposisiWidget> {
 /// Helper function to generate PDF bytes for printing or downloading Lembar Disposisi
 Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
   final pdf = pw.Document();
-  final isKaro = !surat.penerimaLevel.toLowerCase().contains('rumah tangga');
+  final historyList = List<DisposisiModel>.from(surat.listDisposisi);
+  historyList.sort((a, b) => a.assignedAt.compareTo(b.assignedAt));
+  final lastDisposisi = historyList.isNotEmpty ? historyList.last : null;
+  final sigPdf = getSignatureDetailsFor(lastDisposisi?.dariJabatan);
+
+  final isKaro = lastDisposisi == null || lastDisposisi.dariJabatan.toLowerCase().contains('biro') || lastDisposisi.dariJabatan.toLowerCase().contains('karo');
   final diteruskanList = surat.diteruskanKepada;
 
   final optionsKaro = [
     'Kabag. Tata Usaha',
     'Kabag. Rumah Tangga',
-    'Kabag. Administrasi dan Aset',
-    'Sespri',
+    'Kabag. Keuangan dan Aset',
   ];
 
   final optionsKabag = [
     'Ka. Tim Kerja . Urusan Dalam',
-    'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung/Kantor',
+    'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung 1',
+    'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Gedung 2',
     'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Kendaraan',
   ];
 
@@ -679,10 +1030,10 @@ Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text('Diteruskan Kepada Yth. :', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-                          pw.Text(isKaro ? 'Bapak Kepala Biro Umum' : 'Kepala Bagian Rumah Tangga', style: const pw.TextStyle(fontSize: 9.5)),
+                          pw.Text(isKaro ? 'Bapak Kepala Biro Umum' : 'Kabag. Rumah Tangga', style: const pw.TextStyle(fontSize: 9.5)),
                           pw.SizedBox(height: 6),
                           ...currentOptions.map((opt) {
-                            final checked = diteruskanList.contains(opt);
+                            final checked = diteruskanList.contains(opt) || historyList.any((d) => _isMatch(opt, d));
                             return pw.Padding(
                               padding: const pw.EdgeInsets.only(bottom: 4),
                               child: pw.Row(
@@ -720,23 +1071,26 @@ Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
                   child: pw.Column(
                     children: [
                       pw.Text(
-                        isKaro ? 'KEPALA BIRO UMUM' : 'KEPALA BAGIAN RUMAH TANGGA',
+                        sigPdf['title']!,
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
                         textAlign: pw.TextAlign.center,
                       ),
                       pw.SizedBox(height: 45),
+                      if ((sigPdf['nama'] ?? '').isNotEmpty)
+                        pw.Text(
+                          sigPdf['nama']!,
+                          style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline),
+                          textAlign: pw.TextAlign.center,
+                        )
+                      else
+                        pw.SizedBox(height: 16),
                       pw.Text(
-                        isKaro ? 'MUHAMMAD YULIARDI, S.STP., M.Si.' : 'ALVIRDIAN OKTAFIANUS, S.E., S.T., M.M.',
-                        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, decoration: pw.TextDecoration.underline),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                      pw.Text(
-                        isKaro ? 'Pembina Utama Muda' : 'Pembina',
+                        sigPdf['pangkat']!,
                         style: const pw.TextStyle(fontSize: 9),
                         textAlign: pw.TextAlign.center,
                       ),
                       pw.Text(
-                        isKaro ? 'NIP. 198007201999121002' : 'NIP. 19751004 201001 1 002',
+                        sigPdf['nip']!,
                         style: const pw.TextStyle(fontSize: 9),
                         textAlign: pw.TextAlign.center,
                       ),

@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'main_shell.dart';
+import 'admin_shell.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -26,10 +28,23 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (rememberMe && session != null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainShell()),
-      );
+      try {
+        await AuthService.loadUserRole();
+        if (!mounted) return;
+        final role = AuthService.currentRole.value;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => role == UserRole.admin ? const AdminShell() : const MainShell(),
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const RoleSelectorScreen()),
+        );
+      }
     } else {
       Navigator.pushReplacement(
         context,
