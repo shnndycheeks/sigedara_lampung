@@ -60,14 +60,6 @@ class _LoginScreenState extends State<LoginScreen>
   Color get _primaryDark =>
       widget.isAdmin ? const Color(0xFF8B6A00) : const Color(0xFF064AA8);
 
-  List<Color> get _gradient {
-    if (widget.isAdmin) {
-      return const [Color(0xFF6B5200), Color(0xFFD4AF37)];
-    }
-
-    return const [Color(0xFF063F98), Color(0xFF0E6AD8)];
-  }
-
   void _showMessage(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -120,8 +112,6 @@ class _LoginScreenState extends State<LoginScreen>
     try {
       await AuthService.login(email: email, password: password);
 
-      final currentRole = AuthService.currentRole.value;
-
       if (!mounted) return;
 
       _showMessage('Login berhasil');
@@ -137,16 +127,24 @@ class _LoginScreenState extends State<LoginScreen>
 
       if (!mounted) return;
 
+      final isAdmin = AuthService.currentRole.value == UserRole.admin;
+
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => currentRole == UserRole.admin
-              ? const AdminShell()
-              : const MainShell(),
+          builder: (_) => isAdmin ? const AdminShell() : const MainShell(),
         ),
         (route) => false,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('========================================');
+      debugPrint('LOGIN ERROR');
+      debugPrint('========================================');
+      debugPrint('Error: $e');
+      debugPrint('Type: ${e.runtimeType}');
+      debugPrint('StackTrace: $stackTrace');
+      debugPrint('========================================');
+
       if (!mounted) return;
 
       String errorMessage = 'Terjadi kesalahan';
@@ -161,6 +159,8 @@ class _LoginScreenState extends State<LoginScreen>
         errorMessage = 'Akun ini bukan Pegawai';
       } else if (error.contains('network')) {
         errorMessage = 'Koneksi internet bermasalah';
+      } else {
+        errorMessage = 'Login gagal. Cek terminal untuk detail error.';
       }
 
       _showMessage(errorMessage, isError: true);

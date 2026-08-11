@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../theme/app_theme.dart';
 import '../services/navigation_service.dart';
+import '../services/permission_service.dart';
 
 class AdminLaporanScreen extends StatefulWidget {
   const AdminLaporanScreen({super.key});
@@ -10,451 +13,494 @@ class AdminLaporanScreen extends StatefulWidget {
 }
 
 class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
-  int _filterIndex = 0;
-  final List<String> _filters = ['Semua', 'Proses', 'Selesai', 'Ditolak'];
+  final SupabaseClient _client = Supabase.instance.client;
 
-  final List<Map<String, dynamic>> _laporanList = [
-    {
-      'id': 'LK-2025-001',
-      'namaAset': 'AC Ruang Rapat Lt. 1',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-E-012',
-      'pelapor': 'Budi Santoso',
-      'unit': 'Bagian Umum',
-      'tingkat': 'Sedang',
-      'lokasi': 'Gedung Utama Lt. 1',
-      'deskripsi':
-          'AC tidak dapat mendinginkan ruangan, suara berisik saat menyala.',
-      'tanggal': '10 Jun 2025',
-      'status': 'Proses',
-    },
-    {
-      'id': 'LK-2025-002',
-      'namaAset': 'Pintu Aula Utama',
-      'jenisAset': 'Gedung',
-      'kode': 'GDG-003',
-      'pelapor': 'Sari Dewi',
-      'unit': 'Bagian Protokol',
-      'tingkat': 'Ringan',
-      'lokasi': 'Aula Utama',
-      'deskripsi': 'Engsel pintu rusak, pintu tidak dapat menutup sempurna.',
-      'tanggal': '08 Jun 2025',
-      'status': 'Selesai',
-    },
-    {
-      'id': 'LK-2025-003',
-      'namaAset': 'Laptop Dell XPS',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-0041',
-      'pelapor': 'Rendi Pratama',
-      'unit': 'Bagian IT',
-      'tingkat': 'Berat',
-      'lokasi': 'Ruang IT',
-      'deskripsi': 'Layar laptop retak akibat terjatuh, tidak dapat digunakan.',
-      'tanggal': '05 Jun 2025',
-      'status': 'Proses',
-    },
-    {
-      'id': 'LK-2025-004',
-      'namaAset': 'Kursi Roda Kantor',
-      'jenisAset': 'Furnitur',
-      'kode': 'FUR-022',
-      'pelapor': 'Andi Wijaya',
-      'unit': 'Bagian Keuangan',
-      'tingkat': 'Ringan',
-      'lokasi': 'Ruang Keuangan',
-      'deskripsi': 'Roda kursi patah, tidak dapat diputar.',
-      'tanggal': '01 Jun 2025',
-      'status': 'Selesai',
-    },
-    {
-      'id': 'LK-2025-005',
-      'namaAset': 'Genset Cadangan',
-      'jenisAset': 'Elektronik',
-      'kode': 'IT-GS-001',
-      'pelapor': 'Hendra Putra',
-      'unit': 'Bagian Teknik',
-      'tingkat': 'Berat',
-      'lokasi': 'Ruang Genset',
-      'deskripsi':
-          'Genset tidak dapat dinyalakan, kemungkinan masalah pada starter.',
-      'tanggal': '28 Mei 2025',
-      'status': 'Ditolak',
-    },
-  ];
+  int _filterIndex = 0;
+  bool _loading = true;
+  String? _error;
+
+  final List<String> _filters = ['Semua', 'Proses', 'Selesai', 'Ditolak'];
+  List<Map<String, dynamic>> _laporanList = [];
 
   List<Map<String, dynamic>> get _filteredList {
     if (_filterIndex == 0) return _laporanList;
-    final status = _filters[_filterIndex];
-    return _laporanList.where((e) => e['status'] == status).toList();
+
+    final status = _filters[_filterIndex].toLowerCase();
+
+    return _laporanList.where((item) {
+      return _safeText(item['status']).toLowerCase() == status;
+    }).toList();
   }
 
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'Proses':
-        return AppColors.warning;
-      case 'Selesai':
-        return AppColors.success;
-      case 'Ditolak':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
+  @override
+  void initState() {
+    super.initState();
+    _loadLaporan();
+  }
+
+  String _safeText(dynamic value, {String fallback = '-'}) {
+    final text = (value ?? '').toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return fallback;
+    }
+    return text;
+  }
+
+  String _formatTanggal(dynamic value) {
+    final parsed = DateTime.tryParse(_safeText(value));
+    if (parsed == null) return '-';
+
+    const bulan = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
+    ];
+
+    return '${parsed.day.toString().padLeft(2, '0')} '
+        '${bulan[parsed.month]} ${parsed.year}';
+  }
+
+  String _formatKodeLaporan(Map<String, dynamic> item) {
+    final createdAt = DateTime.tryParse(_safeText(item['created_at']));
+    final year = createdAt?.year ?? DateTime.now().year;
+    final id = _safeText(item['id']);
+
+    if (id.length >= 8) {
+      return 'LK-$year-${id.substring(0, 8).toUpperCase()}';
+    }
+
+    return 'LK-$year-$id';
+  }
+
+  Future<void> _loadLaporan() async {
+    if (!PermissionService.canAccessLaporanKendaraan) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Akses laporan kendaraan ditolak.';
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final data = await _client
+          .from('laporan_kerusakan')
+          .select()
+          .eq('jenis_aset', 'Kendaraan')
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _laporanList = List<Map<String, dynamic>>.from(data);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
     }
   }
 
-  Color _tingkatColor(String tingkat) {
-    switch (tingkat) {
-      case 'Ringan':
-        return AppColors.success;
-      case 'Sedang':
-        return AppColors.warning;
-      case 'Berat':
-        return AppColors.error;
-      default:
-        return AppColors.textSecondary;
+  Future<bool> _updateStatus(
+    Map<String, dynamic> item,
+    String newStatus,
+    String catatanAdmin,
+  ) async {
+    final id = item['id'];
+
+    try {
+      await _client
+          .from('laporan_kerusakan')
+          .update({
+            'status': newStatus,
+            'catatan_admin': catatanAdmin.trim().isEmpty
+                ? null
+                : catatanAdmin.trim(),
+          })
+          .eq('id', id);
+
+      if (!mounted) return false;
+
+      await _loadLaporan();
+
+      if (!mounted) return false;
+
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memperbarui laporan: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      return false;
     }
   }
 
-  IconData _jenisAsetIcon(String jenis) {
-    switch (jenis) {
-      case 'Gedung':
-        return Icons.domain;
-      case 'Kendaraan':
-        return Icons.directions_car;
-      case 'Elektronik':
-        return Icons.devices;
-      case 'Furnitur':
-        return Icons.chair;
-      default:
-        return Icons.inventory_2;
-    }
-  }
+  Future<bool> _showUpdateDialog(Map<String, dynamic> item) async {
+    String newStatus = _safeText(item['status'], fallback: 'Proses');
 
-  void _showUpdateDialog(int realIndex, Map<String, dynamic> item) {
-    String newStatus = item['status'];
-    final catatan = TextEditingController();
+    final catatanController = TextEditingController(
+      text: _safeText(item['catatan_admin'], fallback: ''),
+    );
 
-    showDialog(
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setDlg) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Update Status Laporan',
-                  style: TextStyle(
-                    fontFamily: 'Poppins',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Update Status Laporan',
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                Text(
-                  item['id'],
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.normal,
+                  const SizedBox(height: 3),
+                  Text(
+                    _formatKodeLaporan(item),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Pilih Status Baru',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Status',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: ['Proses', 'Selesai', 'Ditolak'].map((s) {
-                    final selected = newStatus == s;
-                    final color = _statusColor(s);
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setDlg(() => newStatus = s),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 6),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? color.withValues(alpha:0.15)
-                                : AppColors.surfaceVariant,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: selected ? color : Colors.transparent,
-                              width: 1.5,
+                  const SizedBox(height: 8),
+
+                  Row(
+                    children: ['Proses', 'Selesai', 'Ditolak'].map((status) {
+                      final selected = newStatus == status;
+                      final color = _statusColor(status);
+
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              newStatus = status;
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? color.withValues(alpha: 0.12)
+                                  : AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: selected ? color : Colors.transparent,
+                                width: 1.3,
+                              ),
                             ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              s,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                                color: selected
-                                    ? color
-                                    : AppColors.textSecondary,
+                            child: Center(
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: selected
+                                      ? color
+                                      : AppColors.textSecondary,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: catatan,
-                  maxLines: 2,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textPrimary,
+                      );
+                    }).toList(),
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'Catatan admin (opsional)...',
-                    hintStyle: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textHint,
-                    ),
-                    contentPadding: const EdgeInsets.all(12),
-                    filled: true,
-                    fillColor: AppColors.surfaceVariant,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text(
-                  'Batal',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _laporanList[realIndex]['status'] = newStatus;
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Status laporan ${item['id']} diubah ke "$newStatus"',
-                      ),
-                      backgroundColor: _statusColor(newStatus),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Simpan',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 
-  void _showDetail(Map<String, dynamic> item) {
-    final realIndex = _laporanList.indexOf(item);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.70,
-        maxChildSize: 0.92,
-        minChildSize: 0.4,
-        builder: (_, scrollCtrl) => SingleChildScrollView(
-          controller: scrollCtrl,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.divider,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 14),
+
+                  TextField(
+                    controller: catatanController,
+                    maxLines: 3,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
                     ),
-                    child: Icon(
-                      _jenisAsetIcon(item['jenisAset']),
-                      color: AppColors.primary,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item['namaAset'],
-                          style: AppTextStyles.h3.copyWith(fontSize: 15),
-                        ),
-                        Text(
-                          item['kode'],
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusColor(item['status']).withValues(alpha:0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      item['status'],
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _statusColor(item['status']),
+                    decoration: InputDecoration(
+                      labelText: 'Catatan Admin',
+                      hintText: 'Tambahkan catatan untuk pegawai...',
+                      filled: true,
+                      fillColor: AppColors.surfaceVariant,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              const Divider(color: AppColors.divider),
-              const SizedBox(height: 12),
-              _detailRow('No. Laporan', item['id']),
-              _detailRow('Pelapor', item['pelapor']),
-              _detailRow('Unit / Divisi', item['unit']),
-              _detailRow('Jenis Aset', item['jenisAset']),
-              _detailRow('Lokasi', item['lokasi']),
-              _detailRow('Tanggal Laporan', item['tanggal']),
-              _detailRow(
-                'Tingkat Kerusakan',
-                item['tingkat'],
-                valueColor: _tingkatColor(item['tingkat']),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Deskripsi Kerusakan',
-                style: AppTextStyles.h4.copyWith(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  item['deskripsi'],
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    color: AppColors.textPrimary,
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                  child: const Text(
+                    'Batal',
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              if (item['status'] == 'Proses')
+
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop({
+                      'status': newStatus,
+                      'catatan': catatanController.text,
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Simpan',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // Dialog sudah benar-benar tertutup di sini.
+    catatanController.dispose();
+
+    if (result == null) {
+      return false;
+    }
+
+    final status = result['status'] as String;
+    final catatan = result['catatan'] as String;
+
+    return await _updateStatus(item, status, catatan);
+  }
+
+  void _showDetail(Map<String, dynamic> item) {
+    final status = _safeText(item['status'], fallback: 'Proses');
+    final tingkat = _safeText(item['tingkat'], fallback: 'Ringan');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.72,
+        maxChildSize: 0.92,
+        minChildSize: 0.45,
+        builder: (_, scrollController) {
+          return SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.divider,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Row(
                   children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showUpdateDialog(realIndex, item);
-                        },
-                        icon: const Icon(
-                          Icons.edit_outlined,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          'Update Status',
-                          style: TextStyle(color: Colors.white, fontSize: 13),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.directions_car_rounded,
+                        color: AppColors.primary,
+                        size: 28,
                       ),
                     ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _safeText(item['nama_aset']),
+                            style: AppTextStyles.h3.copyWith(fontSize: 16),
+                          ),
+                          Text(
+                            _safeText(item['kode_aset']),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _badge(status, _statusColor(status)),
                   ],
-                )
-              else
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showUpdateDialog(realIndex, item);
+                ),
+                const SizedBox(height: 20),
+                const Divider(color: AppColors.divider),
+                const SizedBox(height: 12),
+                _detailRow('No. Laporan', _formatKodeLaporan(item)),
+                _detailRow('Pelapor', _safeText(item['nama_pelapor'])),
+                _detailRow('Unit / Divisi', _safeText(item['unit'])),
+                _detailRow('Nama Kendaraan', _safeText(item['nama_aset'])),
+                _detailRow('Nomor Polisi', _safeText(item['kode_aset'])),
+                _detailRow('Lokasi', _safeText(item['lokasi'])),
+                _detailRow(
+                  'Tanggal Kejadian',
+                  _formatTanggal(item['tanggal_kejadian']),
+                ),
+                _detailRow(
+                  'Tingkat Kerusakan',
+                  tingkat,
+                  valueColor: _tingkatColor(tingkat),
+                ),
+                if (_safeText(item['catatan_admin']).trim() != '-') ...[
+                  _detailRow(
+                    'Catatan Admin',
+                    _safeText(item['catatan_admin']),
+                    valueColor: AppColors.textSecondary,
+                  ),
+                ],
+                const SizedBox(height: 12),
+                const Text(
+                  'Deskripsi Kerusakan',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _safeText(item['deskripsi']),
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      color: AppColors.textPrimary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      // Simpan object yang dibutuhkan SEBELUM async gap.
+                      final navigator = Navigator.of(sheetContext);
+                      final messenger = ScaffoldMessenger.of(context);
+
+                      final updated = await _showUpdateDialog(item);
+
+                      if (!mounted) return;
+                      if (!navigator.mounted) return;
+                      if (!messenger.mounted) return;
+
+                      if (updated) {
+                        navigator.pop();
+
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Laporan ${_formatKodeLaporan(item)} berhasil diubah.',
+                            ),
+                            backgroundColor: AppColors.success,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(
                       Icons.edit_outlined,
-                      size: 14,
-                      color: AppColors.textSecondary,
+                      color: Colors.white,
+                      size: 17,
                     ),
                     label: const Text(
-                      'Ubah Status',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
+                      'Update Status',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      elevation: 0,
                     ),
                   ),
                 ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -466,11 +512,11 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: 135,
             child: Text(
               label,
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12.5,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -490,198 +536,307 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
     );
   }
 
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'proses':
+        return AppColors.warning;
+      case 'selesai':
+        return AppColors.success;
+      case 'ditolak':
+        return AppColors.error;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  Color _tingkatColor(String tingkat) {
+    switch (tingkat.toLowerCase()) {
+      case 'ringan':
+        return AppColors.success;
+      case 'sedang':
+        return AppColors.warning;
+      case 'berat':
+        return AppColors.error;
+      default:
+        return AppColors.textSecondary;
+    }
+  }
+
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!PermissionService.canAccessLaporanKendaraan) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(
+            'Akses Ditolak',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AdminColors.primary,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+            ),
+            onPressed: () => NavigationService.goHomeAdmin?.call(),
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Anda tidak memiliki izin untuk mengakses laporan kerusakan kendaraan.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
     final list = _filteredList;
-    final proses = _laporanList.where((e) => e['status'] == 'Proses').length;
+    final total = _laporanList.length;
+    final proses = _laporanList
+        .where((e) => _safeText(e['status']) == 'Proses')
+        .length;
+    final selesai = _laporanList
+        .where((e) => _safeText(e['status']) == 'Selesai')
+        .length;
+    final ditolak = _laporanList
+        .where((e) => _safeText(e['status']) == 'Ditolak')
+        .length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          'Laporan Kerusakan',
+          'Laporan Kerusakan Kendaraan',
           style: TextStyle(
             color: Colors.white,
             fontFamily: 'Poppins',
-            fontSize: 18,
+            fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
         ),
         backgroundColor: AdminColors.primary,
         automaticallyImplyLeading: false,
-        iconTheme: const IconThemeData(color: Colors.white),
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
             color: Colors.white,
             size: 20,
           ),
-          onPressed: () {
-            NavigationService.goHomeAdmin?.call();
-          },
+          onPressed: () => NavigationService.goHomeAdmin?.call(),
         ),
         actions: [
-          if (proses > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+          IconButton(
+            onPressed: _loading ? null : _loadLaporan,
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.error,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Gagal memuat laporan', style: AppTextStyles.h3),
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _loadLaporan,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Coba Lagi'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : Column(
+              children: [
+                Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      _summaryCard(
+                        'Total',
+                        total.toString(),
+                        AppColors.primary,
+                        Icons.report_problem_outlined,
+                      ),
+                      const SizedBox(width: 7),
+                      _summaryCard(
+                        'Proses',
+                        proses.toString(),
+                        AppColors.warning,
+                        Icons.hourglass_top_rounded,
+                      ),
+                      const SizedBox(width: 7),
+                      _summaryCard(
+                        'Selesai',
+                        selesai.toString(),
+                        AppColors.success,
+                        Icons.check_circle_outline_rounded,
+                      ),
+                      const SizedBox(width: 7),
+                      _summaryCard(
+                        'Ditolak',
+                        ditolak.toString(),
+                        AppColors.error,
+                        Icons.cancel_outlined,
+                      ),
+                    ],
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.warning,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$proses Proses',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                ),
+                Container(
+                  color: AppColors.surface,
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(_filters.length, (i) {
+                        final selected = _filterIndex == i;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(_filters[i]),
+                            selected: selected,
+                            selectedColor: AppColors.primary,
+                            backgroundColor: AppColors.surfaceVariant,
+                            labelStyle: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                            ),
+                            onSelected: (_) {
+                              setState(() => _filterIndex = i);
+                            },
+                          ),
+                        );
+                      }),
                     ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Summary cards
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                _summaryCard(
-                  'Total',
-                  _laporanList.length.toString(),
-                  AppColors.primary,
-                  Icons.report_problem,
-                ),
-                const SizedBox(width: 8),
-                _summaryCard(
-                  'Proses',
-                  _laporanList
-                      .where((e) => e['status'] == 'Proses')
-                      .length
-                      .toString(),
-                  AppColors.warning,
-                  Icons.hourglass_top,
-                ),
-                const SizedBox(width: 8),
-                _summaryCard(
-                  'Selesai',
-                  _laporanList
-                      .where((e) => e['status'] == 'Selesai')
-                      .length
-                      .toString(),
-                  AppColors.success,
-                  Icons.check_circle_outline,
-                ),
-                const SizedBox(width: 8),
-                _summaryCard(
-                  'Ditolak',
-                  _laporanList
-                      .where((e) => e['status'] == 'Ditolak')
-                      .length
-                      .toString(),
-                  AppColors.error,
-                  Icons.cancel_outlined,
+                const Divider(height: 1, color: AppColors.divider),
+                Expanded(
+                  child: list.isEmpty
+                      ? RefreshIndicator(
+                          onRefresh: _loadLaporan,
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: const [
+                              SizedBox(height: 140),
+                              Icon(
+                                Icons.directions_car_outlined,
+                                size: 58,
+                                color: AppColors.textHint,
+                              ),
+                              SizedBox(height: 12),
+                              Center(
+                                child: Text(
+                                  'Belum ada laporan kerusakan kendaraan',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Center(
+                                child: Text(
+                                  'Tarik ke bawah untuk memuat ulang',
+                                  style: TextStyle(
+                                    color: AppColors.textHint,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadLaporan,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(14),
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: list.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (_, index) {
+                              return _laporanTile(list[index]);
+                            },
+                          ),
+                        ),
                 ),
               ],
             ),
-          ),
-          // Filter chips
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(_filters.length, (i) {
-                  final selected = _filterIndex == i;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(_filters[i]),
-                      selected: selected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.surfaceVariant,
-                      labelStyle: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: selected
-                            ? Colors.white
-                            : AppColors.textSecondary,
-                      ),
-                      onSelected: (_) => setState(() => _filterIndex = i),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ),
-          const Divider(height: 1, color: AppColors.divider),
-          // List
-          Expanded(
-            child: list.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.report_problem_outlined,
-                          size: 56,
-                          color: AppColors.textHint,
-                        ),
-                        SizedBox(height: 12),
-                        Text(
-                          'Tidak ada laporan',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => _laporanTile(list[i]),
-                  ),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _summaryCard(String label, String value, Color color, IconData icon) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 5),
         decoration: BoxDecoration(
-          color: color.withValues(alpha:0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withValues(alpha:0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 4),
+            Icon(icon, color: color, size: 17),
+            const SizedBox(height: 3),
             Text(
               value,
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
-            Text(label, style: TextStyle(fontSize: 10, color: color)),
+            Text(label, style: TextStyle(fontSize: 9.5, color: color)),
           ],
         ),
       ),
@@ -689,9 +844,9 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
   }
 
   Widget _laporanTile(Map<String, dynamic> item) {
-    final realIndex = _laporanList.indexOf(item);
-    final statusColor = _statusColor(item['status']);
-    final tingkatColor = _tingkatColor(item['tingkat']);
+    final status = _safeText(item['status'], fallback: 'Proses');
+    final tingkat = _safeText(item['tingkat'], fallback: 'Ringan');
+
     return GestureDetector(
       onTap: () => _showDetail(item),
       child: Container(
@@ -716,8 +871,8 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
                   color: AppColors.surfaceVariant,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  _jenisAsetIcon(item['jenisAset']),
+                child: const Icon(
+                  Icons.directions_car_rounded,
                   color: AppColors.primary,
                   size: 22,
                 ),
@@ -728,31 +883,35 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item['namaAset'],
+                      _safeText(item['nama_aset']),
                       style: AppTextStyles.h4.copyWith(fontSize: 13.5),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${item['id']} · ${item['pelapor']}',
+                      '${_safeText(item['kode_aset'])} · '
+                      '${_safeText(item['nama_pelapor'])}',
                       style: const TextStyle(
                         fontSize: 11.5,
                         color: AppColors.textSecondary,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        _badge(item['tingkat'], tingkatColor),
+                        _badge(tingkat, _tingkatColor(tingkat)),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            item['tanggal'],
+                            _formatTanggal(item['tanggal_kejadian']),
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textHint,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -764,60 +923,17 @@ class _AdminLaporanScreenState extends State<AdminLaporanScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _badge(item['status'], statusColor),
-                  if (item['status'] == 'Proses') ...[
-                    const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: () => _showUpdateDialog(realIndex, item),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha:0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Update',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 6),
-                    const Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: AppColors.textHint,
-                    ),
-                  ],
+                  _badge(status, _statusColor(status)),
+                  const SizedBox(height: 6),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.textHint,
+                  ),
                 ],
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha:0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          color: color,
         ),
       ),
     );

@@ -3,9 +3,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 import '../services/database_service.dart';
-import 'peminjaman_screen.dart'
-    show kRuanganInfo, KalenderGedungScreen;
-import 'admin_persetujuan_screen.dart';
+import '../services/permission_service.dart';
+import 'peminjaman_screen.dart' show kRuanganInfo, KalenderGedungScreen;
 
 class AdminPeminjamanScreen extends StatefulWidget {
   const AdminPeminjamanScreen({super.key});
@@ -14,10 +13,7 @@ class AdminPeminjamanScreen extends StatefulWidget {
   State<AdminPeminjamanScreen> createState() => _AdminPeminjamanScreenState();
 }
 
-class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
-
+class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
   int _filterGedung = 0;
   int _filterKendaraan = 0;
 
@@ -32,13 +28,11 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
     _loadData();
   }
 
   @override
   void dispose() {
-    _tab.dispose();
     super.dispose();
   }
 
@@ -319,14 +313,26 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
     return TimeOfDay(hour: date.hour, minute: date.minute);
   }
 
+  String get _pageTitle {
+    if (PermissionService.isAdminGedung) {
+      return 'Peminjaman Gedung';
+    }
+
+    if (PermissionService.isAdminKendaraan) {
+      return 'Peminjaman Kendaraan';
+    }
+
+    return 'Peminjaman';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
-          'Daftar Peminjaman',
-          style: TextStyle(
+        title: Text(
+          _pageTitle,
+          style: const TextStyle(
             color: Color(0xFF0F172A),
             fontFamily: 'Poppins',
             fontSize: 18,
@@ -343,6 +349,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
             color: Color(0xFF475569),
             size: 20,
           ),
+          tooltip: 'Kembali',
           onPressed: () => NavigationService.goHomeAdmin?.call(),
         ),
         actions: [
@@ -351,60 +358,29 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen>
             tooltip: 'Refresh Data',
             onPressed: _loadData,
           ),
-          IconButton(
-            icon: const Icon(Icons.task_alt_rounded, color: Color(0xFFF59E0B)),
-            tooltip: 'Proses Persetujuan',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminPersetujuanScreen()),
+          if (PermissionService.isAdminGedung)
+            IconButton(
+              icon: const Icon(
+                Icons.calendar_month_outlined,
+                color: Color(0xFF475569),
+              ),
+              tooltip: 'Kalender Gedung',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.calendar_month_outlined,
-              color: Color(0xFF475569),
-            ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
-            ),
-          ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
-              ),
-            ),
-            child: TabBar(
-              controller: _tab,
-              indicatorColor: const Color(0xFFF59E0B),
-              indicatorWeight: 3,
-              labelColor: const Color(0xFFF59E0B),
-              unselectedLabelColor: const Color(0xFF64748B),
-              labelStyle: const TextStyle(
-                fontFamily: 'Poppins',
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-              tabs: const [
-                Tab(text: 'Peminjaman Gedung'),
-                Tab(text: 'Peminjaman Kendaraan'),
-              ],
-            ),
-          ),
-        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? _ErrorView(message: _error!, onRetry: _loadData)
-          : TabBarView(
-              controller: _tab,
-              children: [_buildGedungTab(), _buildKendaraanTab()],
-            ),
+          : PermissionService.isAdminGedung
+          ? _buildGedungTab()
+          : PermissionService.isAdminKendaraan
+          ? _buildKendaraanTab()
+          : const Center(child: Text('Anda tidak memiliki akses peminjaman.')),
     );
   }
 
@@ -1634,11 +1610,8 @@ class _AdminDetailPeminjamanScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 14),
-
-            if (isGedung) const SizedBox.shrink(),
-
-            if (isGedung) const SizedBox(height: 14),
             NeuCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

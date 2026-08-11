@@ -2,7 +2,7 @@ class SupabaseConfig {
   static const String url =
       'https://hbjkykoqyrlrisqendkl.supabase.co';
 
-  static const String anonKey =
+  static const String publishableKey =
       'sb_publishable_Exfmd5MHN5TImD7d9kO-xg_JkGY9Rz_';
 
   static const String googleFormUrl =

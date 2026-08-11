@@ -1,7 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'permission_service.dart';
+
 class DatabaseService {
   static final SupabaseClient _client = Supabase.instance.client;
+
+  // ============================================================
+  // KENDARAAN
+  // ============================================================
 
   static Future<List<Map<String, dynamic>>> getKendaraan() async {
     final data = await _client
@@ -12,6 +18,10 @@ class DatabaseService {
     return List<Map<String, dynamic>>.from(data);
   }
 
+  // ============================================================
+  // ASET
+  // ============================================================
+
   static Future<List<Map<String, dynamic>>> getAssets() async {
     final data = await _client
         .from('assets')
@@ -21,6 +31,10 @@ class DatabaseService {
     return List<Map<String, dynamic>>.from(data);
   }
 
+  // ============================================================
+  // RUANGAN
+  // ============================================================
+
   static Future<List<Map<String, dynamic>>> getRuangan() async {
     final data = await _client
         .from('ruangan')
@@ -29,6 +43,10 @@ class DatabaseService {
 
     return List<Map<String, dynamic>>.from(data);
   }
+
+  // ============================================================
+  // PEGAWAI
+  // ============================================================
 
   static Future<List<Map<String, dynamic>>> getPegawaiProfiles() async {
     final data = await _client
@@ -46,6 +64,10 @@ class DatabaseService {
   }) async {
     await _client.from('profiles').update({'status': status}).eq('id', userId);
   }
+
+  // ============================================================
+  // ASET - CRUD
+  // ============================================================
 
   static Future<void> tambahAset({
     required String nama,
@@ -91,9 +113,9 @@ class DatabaseService {
     await _client.from('assets').delete().eq('id', id);
   }
 
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
   // HELPER CEK BENTROK JADWAL
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
 
   static String _formatJam(DateTime date) {
     final local = date.toLocal();
@@ -223,18 +245,25 @@ class DatabaseService {
       if (benarBentrok) {
         if (isKendaraan) {
           throw Exception(
-            '$namaItem sudah dibooking pada ${_formatTanggal(mulaiLamaRaw)} '
+            '$namaItem sudah dibooking pada '
+            '${_formatTanggal(mulaiLamaRaw)} '
             'sampai ${_formatTanggal(selesaiLamaRaw)}',
           );
         }
 
         throw Exception(
-          '$namaItem sudah dibooking pada ${_formatTanggal(mulaiLamaRaw)} '
-          'jam ${_formatJam(mulaiLamaRaw)} - ${_formatJam(selesaiLamaRaw)}',
+          '$namaItem sudah dibooking pada '
+          '${_formatTanggal(mulaiLamaRaw)} '
+          'jam ${_formatJam(mulaiLamaRaw)} - '
+          '${_formatJam(selesaiLamaRaw)}',
         );
       }
     }
   }
+
+  // ============================================================
+  // HELPER RUANGAN
+  // ============================================================
 
   static Future<String> _resolveRuanganId(String ruanganId) async {
     String finalRuanganId = ruanganId;
@@ -311,9 +340,9 @@ class DatabaseService {
     return '$nama ($plat)';
   }
 
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
   // PEMINJAMAN GEDUNG / RUANGAN
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
 
   static Future<void> ajukanPeminjamanGedung({
     required String ruanganId,
@@ -350,9 +379,9 @@ class DatabaseService {
     });
   }
 
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
   // PEMINJAMAN KENDARAAN
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
 
   static Future<void> ajukanPeminjamanKendaraan({
     required String kendaraanId,
@@ -388,6 +417,10 @@ class DatabaseService {
     });
   }
 
+  // ============================================================
+  // PEMINJAMAN SAYA
+  // ============================================================
+
   static Future<List<Map<String, dynamic>>> getPeminjamanSaya() async {
     final user = _client.auth.currentUser;
 
@@ -404,6 +437,10 @@ class DatabaseService {
     return List<Map<String, dynamic>>.from(data);
   }
 
+  // ============================================================
+  // SEMUA PEMINJAMAN
+  // ============================================================
+
   static Future<List<Map<String, dynamic>>> getSemuaPeminjaman() async {
     final data = await _client
         .from('peminjaman')
@@ -412,6 +449,10 @@ class DatabaseService {
 
     return List<Map<String, dynamic>>.from(data);
   }
+
+  // ============================================================
+  // UPDATE STATUS PEMINJAMAN
+  // ============================================================
 
   static Future<void> updateStatusPeminjaman({
     required String peminjamanId,
@@ -424,6 +465,52 @@ class DatabaseService {
       throw Exception('Admin belum login');
     }
 
+    // ------------------------------------------------------------
+    // Ambil tipe peminjaman terlebih dahulu.
+    // Kita tidak langsung update sebelum mengetahui
+    // apakah data tersebut Gedung atau Kendaraan.
+    // ------------------------------------------------------------
+
+    final peminjaman = await _client
+        .from('peminjaman')
+        .select('tipe_item')
+        .eq('id', peminjamanId)
+        .maybeSingle();
+
+    if (peminjaman == null) {
+      throw Exception('Data peminjaman tidak ditemukan');
+    }
+
+    final tipeItem = (peminjaman['tipe_item'] ?? '')
+        .toString()
+        .toLowerCase()
+        .trim();
+
+    // ------------------------------------------------------------
+    // CEK PERMISSION
+    //
+    // Admin Gedung  -> hanya boleh Gedung/Ruangan
+    // Admin Kendaraan -> hanya boleh Kendaraan
+    // ------------------------------------------------------------
+
+    bool bolehMemproses = false;
+
+    if (tipeItem == 'kendaraan') {
+      bolehMemproses = PermissionService.isAdminKendaraan;
+    } else if (tipeItem == 'ruangan' || tipeItem == 'gedung') {
+      bolehMemproses = PermissionService.isAdminGedung;
+    }
+
+    if (!bolehMemproses) {
+      throw Exception(
+        'Anda tidak memiliki izin untuk memproses peminjaman ini',
+      );
+    }
+
+    // ------------------------------------------------------------
+    // UPDATE STATUS
+    // ------------------------------------------------------------
+
     await _client
         .from('peminjaman')
         .update({
@@ -435,9 +522,9 @@ class DatabaseService {
         .eq('id', peminjamanId);
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // EDIT & HAPUS PEMINJAMAN
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
+  // EDIT PEMINJAMAN
+  // ============================================================
 
   static Future<void> updatePeminjaman({
     required String peminjamanId,
@@ -459,13 +546,17 @@ class DatabaseService {
         .eq('id', peminjamanId);
   }
 
+  // ============================================================
+  // HAPUS PEMINJAMAN
+  // ============================================================
+
   static Future<void> hapusPeminjaman(String peminjamanId) async {
     await _client.from('peminjaman').delete().eq('id', peminjamanId);
   }
 
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
   // DASHBOARD PEGAWAI
-  // ─────────────────────────────────────────────────────────────
+  // ============================================================
 
   static Future<Map<String, int>> getDashboardStats() async {
     final user = _client.auth.currentUser;
@@ -497,11 +588,13 @@ class DatabaseService {
 
     final peminjamanGedung = peminjamanList.where((p) {
       final tipe = (p['tipe_item'] ?? '').toString().toLowerCase();
+
       return tipe == 'ruangan' || tipe == 'gedung';
     }).length;
 
     final menungguPersetujuan = peminjamanList.where((p) {
       final status = (p['status'] ?? '').toString().toLowerCase();
+
       return status == 'pending' || status == 'menunggu';
     }).length;
 

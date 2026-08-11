@@ -3,6 +3,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 
+import '../services/permission_service.dart';
+
 class AdminKendaraanScreen extends StatefulWidget {
   const AdminKendaraanScreen({super.key});
 
@@ -116,6 +118,60 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!PermissionService.canViewKendaraan) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(
+            'Akses Ditolak',
+            style: TextStyle(
+              color: Color(0xFF0F172A),
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF475569),
+            ),
+            onPressed: () {
+              NavigationService.goHomeAdmin?.call();
+            },
+          ),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 64,
+                  color: AppColors.error,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Akses Ditolak',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Anda tidak memiliki izin untuk mengakses manajemen kendaraan.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -146,28 +202,36 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
           },
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFFF59E0B)),
-            onPressed: () => _showAddEditDialog(context, null),
-            tooltip: 'Tambah Kendaraan',
-          ),
+          if (PermissionService.canManageKendaraan)
+            IconButton(
+              icon: const Icon(
+                Icons.add_circle_outline_rounded,
+                color: Color(0xFFF59E0B),
+              ),
+              onPressed: () => _showAddEditDialog(context, null),
+              tooltip: 'Tambah Kendaraan',
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditDialog(context, null),
-        backgroundColor: AdminColors.primary,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Tambah',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-            fontSize: 13,
-          ),
-        ),
-      ),
+      floatingActionButton: PermissionService.canManageKendaraan
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddEditDialog(context, null),
+              backgroundColor: AdminColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Tambah',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -303,6 +367,7 @@ class _AdminKendaraanScreenState extends State<AdminKendaraanScreen> {
                       data: _filtered[i],
                       onEdit: () => _showAddEditDialog(context, _filtered[i]),
                       onDelete: () => _showDeleteDialog(context, _filtered[i]),
+                      canManage: PermissionService.canManageKendaraan,
                     ),
                   ),
           ),
@@ -512,11 +577,13 @@ class _AdminKendaraanTile extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final bool canManage;
 
   const _AdminKendaraanTile({
     required this.data,
     required this.onEdit,
     required this.onDelete,
+    required this.canManage,
   });
 
   Color _statusColor(String s) {
@@ -533,6 +600,7 @@ class _AdminKendaraanTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = data['status'] as String;
+
     return NeuCard(
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -550,23 +618,31 @@ class _AdminKendaraanTile extends StatelessWidget {
               size: 24,
             ),
           ),
+
           const SizedBox(width: 12),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(data['nama'] as String, style: AppTextStyles.h4),
+
                 const SizedBox(height: 2),
+
                 Text(
                   '${data['plat']} • ${data['jenis']} • ${data['tahun']}',
                   style: AppTextStyles.bodySmall,
                 ),
+
                 const SizedBox(height: 4),
+
                 Row(
                   children: [
                     StatusBadge(label: status, color: _statusColor(status)),
+
                     if ((data['peminjam'] as String).isNotEmpty) ...[
                       const SizedBox(width: 6),
+
                       Flexible(
                         child: Text(
                           '• ${data['peminjam']}',
@@ -580,30 +656,39 @@ class _AdminKendaraanTile extends StatelessWidget {
               ],
             ),
           ),
-          Column(
-            children: [
-              IconButton(
-                onPressed: onEdit,
-                icon: const Icon(
-                  Icons.edit_outlined,
-                  size: 20,
-                  color: Color(0xFFF59E0B),
+
+          if (canManage)
+            Column(
+              children: [
+                IconButton(
+                  onPressed: onEdit,
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 20,
+                    color: Color(0xFFF59E0B),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: AppColors.error,
+
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: AppColors.error,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );

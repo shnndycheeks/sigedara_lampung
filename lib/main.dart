@@ -14,10 +14,10 @@ void main() async {
   // INIT SUPABASE
   await Supabase.initialize(
     url: SupabaseConfig.url,
-    anonKey: SupabaseConfig.anonKey,
+    publishableKey: SupabaseConfig.publishableKey,
   );
 
- // INIT NOTIFICATION
+  // INIT NOTIFICATION
   await AppNotificationService.init();
 
   runApp(const GerCepMajuApp());

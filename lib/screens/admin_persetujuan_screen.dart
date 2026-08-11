@@ -3,6 +3,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 import '../services/database_service.dart';
+import '../services/permission_service.dart';
 
 class AdminPersetujuanScreen extends StatefulWidget {
   const AdminPersetujuanScreen({super.key});
@@ -11,10 +12,7 @@ class AdminPersetujuanScreen extends StatefulWidget {
   State<AdminPersetujuanScreen> createState() => _AdminPersetujuanScreenState();
 }
 
-class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tab;
-
+class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen> {
   int _filterIndex = 0;
   bool _loading = true;
   String? _error;
@@ -27,13 +25,11 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 2, vsync: this);
     _loadData();
   }
 
   @override
   void dispose() {
-    _tab.dispose();
     super.dispose();
   }
 
@@ -161,20 +157,22 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
   static String _namaKendaraan(Map<String, dynamic>? data, String fallback) {
     if (data == null) return fallback;
 
-    final nama = (data['nama'] ??
-            data['nama_kendaraan'] ??
-            data['merk'] ??
-            data['jenis'] ??
-            'Kendaraan')
-        .toString();
+    final nama =
+        (data['nama'] ??
+                data['nama_kendaraan'] ??
+                data['merk'] ??
+                data['jenis'] ??
+                'Kendaraan')
+            .toString();
 
-    final plat = (data['plat_nomor'] ??
-            data['nomor_polisi'] ??
-            data['no_polisi'] ??
-            data['nopol'] ??
-            '')
-        .toString()
-        .trim();
+    final plat =
+        (data['plat_nomor'] ??
+                data['nomor_polisi'] ??
+                data['no_polisi'] ??
+                data['nopol'] ??
+                '')
+            .toString()
+            .trim();
 
     if (plat.isEmpty || plat == 'null') return nama;
 
@@ -391,12 +389,12 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
     final filtered = _filterIndex == 0
         ? data
         : data
-            .where(
-              (d) =>
-                  d['status'].toString().toLowerCase() ==
-                  _filters[_filterIndex].toLowerCase(),
-            )
-            .toList();
+              .where(
+                (d) =>
+                    d['status'].toString().toLowerCase() ==
+                    _filters[_filterIndex].toLowerCase(),
+              )
+              .toList();
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -431,9 +429,9 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
                       boxShadow: _filterIndex == i
                           ? [
                               BoxShadow(
-                                color: const Color(0xFFF59E0B).withValues(
-                                  alpha: 0.3,
-                                ),
+                                color: const Color(
+                                  0xFFF59E0B,
+                                ).withValues(alpha: 0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -478,8 +476,7 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
                     itemBuilder: (_, i) => _PersetujuanTile(
                       data: filtered[i],
                       statusColor: _statusColor(filtered[i]['status']),
-                      onApprove: () =>
-                          _handleAction(filtered[i], 'Disetujui'),
+                      onApprove: () => _handleAction(filtered[i], 'Disetujui'),
                       onReject: () => _showRejectDialog(context, filtered[i]),
                     ),
                   ),
@@ -511,13 +508,15 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
         ),
       );
     } else {
-      body = TabBarView(
-        controller: _tab,
-        children: [
-          _buildPersetujuanTab(_gedungData),
-          _buildPersetujuanTab(_kendaraanData),
-        ],
-      );
+      if (PermissionService.isAdminGedung) {
+        body = _buildPersetujuanTab(_gedungData);
+      } else if (PermissionService.isAdminKendaraan) {
+        body = _buildPersetujuanTab(_kendaraanData);
+      } else {
+        body = const Center(
+          child: Text('Anda tidak memiliki akses persetujuan.'),
+        );
+      }
     }
 
     return Scaffold(
@@ -552,22 +551,6 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen>
             onPressed: _loadData,
           ),
         ],
-        bottom: TabBar(
-          controller: _tab,
-          indicatorColor: AppColors.gold,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(
-            fontFamily: 'Poppins',
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-          tabs: const [
-            Tab(text: 'Peminjaman Gedung'),
-            Tab(text: 'Pinjam Kendaraan'),
-          ],
-        ),
       ),
       body: body,
     );
@@ -641,10 +624,7 @@ class _PersetujuanTile extends StatelessWidget {
             text: '${data['tgl_pinjam']} - ${data['tgl_kembali']}',
           ),
           const SizedBox(height: 6),
-          _InfoRow(
-            icon: Icons.access_time,
-            text: data['waktu'] as String,
-          ),
+          _InfoRow(icon: Icons.access_time, text: data['waktu'] as String),
           const SizedBox(height: 6),
           _InfoRow(
             icon: Icons.notes_outlined,
@@ -708,10 +688,7 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
 
-  const _InfoRow({
-    required this.icon,
-    required this.text,
-  });
+  const _InfoRow({required this.icon, required this.text});
 
   Color _iconColor() {
     if (icon == Icons.calendar_today_outlined) {
