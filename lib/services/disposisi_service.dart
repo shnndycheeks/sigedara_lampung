@@ -2,10 +2,129 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/arsip_surat_model.dart';
 import '../models/disposisi_model.dart';
+import 'permission_service.dart';
 
 class DisposisiService {
   static final SupabaseClient _client = Supabase.instance.client;
   static const String _tableName = 'disposisi';
+  // ============================================================
+  // VALIDASI ALUR DISPOSISI
+  // ============================================================
+
+  static const Set<String> _kabagJabatanIds = {
+    'kabag_asset_jab',
+    'kabag_rt_jab',
+    'kabag_tu_jab',
+  };
+
+  static const Set<String> _katimJabatanIds = {
+    'katim_gd_jab',
+    'katim_kd_jab',
+    'katim_ud_jab',
+  };
+
+  /// Memastikan pengirim memang user yang sedang login
+  /// dan memiliki jabatan yang sesuai dengan alur disposisi.
+  static Future<void> _validasiPengirim({
+    required String dariUserId,
+    required String dariJabatan,
+  }) async {
+    final user = _client.auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Anda belum login.');
+    }
+
+    if (user.id != dariUserId) {
+      throw Exception('Pengirim disposisi tidak valid.');
+    }
+
+    final jabatanLogin = PermissionService.jabatanId?.toLowerCase();
+
+    if (jabatanLogin == null || jabatanLogin.isEmpty) {
+      await PermissionService.loadPermissions();
+    }
+
+    final jabatanAktual = PermissionService.jabatanId?.toLowerCase();
+
+    if (jabatanAktual == null || jabatanAktual.isEmpty) {
+      throw Exception('Jabatan pengguna tidak ditemukan.');
+    }
+
+    if (jabatanAktual != dariJabatan.toLowerCase()) {
+      throw Exception(
+        'Jabatan pengirim tidak sesuai dengan akun yang sedang login.',
+      );
+    }
+
+    // TU tidak boleh membuat disposisi.
+    if (jabatanAktual == 'tu_staff') {
+      throw Exception(
+        'TU hanya dapat melakukan scan/input surat dan tidak dapat membuat disposisi.',
+      );
+    }
+
+    // Katim tidak boleh meneruskan disposisi.
+    if (_katimJabatanIds.contains(jabatanAktual)) {
+      throw Exception('Katim tidak dapat meneruskan disposisi.');
+    }
+
+    // Hanya Karo atau Kabag yang boleh membuat disposisi.
+    final bolehDisposisi =
+        jabatanAktual == 'karo' || _kabagJabatanIds.contains(jabatanAktual);
+
+    if (!bolehDisposisi) {
+      throw Exception(
+        'Jabatan ini tidak memiliki kewenangan untuk membuat disposisi.',
+      );
+    }
+  }
+
+  /// Memastikan target sesuai level berikutnya.
+  static void _validasiPenerima({
+    required String dariJabatan,
+    required List<Map<String, String>> penerimaList,
+  }) {
+    final pengirim = dariJabatan.toLowerCase();
+
+    if (penerimaList.isEmpty) {
+      throw Exception('Penerima disposisi tidak boleh kosong.');
+    }
+
+    final targetJabatan = penerimaList
+        .map((p) => (p['jabatan'] ?? '').toLowerCase())
+        .toList();
+
+    if (targetJabatan.any((jabatan) => jabatan.isEmpty)) {
+      throw Exception('Jabatan penerima disposisi tidak valid.');
+    }
+
+    // KARO → hanya boleh ke KABAG.
+    if (pengirim == 'karo') {
+      final semuaKabag = targetJabatan.every(_kabagJabatanIds.contains);
+
+      if (!semuaKabag) {
+        throw Exception('Karo hanya dapat mendisposisikan surat kepada Kabag.');
+      }
+
+      return;
+    }
+
+    // KABAG → hanya boleh ke KATIM.
+    if (_kabagJabatanIds.contains(pengirim)) {
+      final semuaKatim = targetJabatan.every(_katimJabatanIds.contains);
+
+      if (!semuaKatim) {
+        throw Exception(
+          'Kabag hanya dapat mendisposisikan surat kepada Katim.',
+        );
+      }
+
+      return;
+    }
+
+    throw Exception('Alur disposisi tidak valid.');
+  }
 
   /// Memuat daftar surat Inbox untuk user aktif (Status pending / dibaca)
   static Future<List<ArsipSurat>> getInboxSurat({
@@ -109,11 +228,15 @@ class DisposisiService {
     required String dariUserId,
     required String dariRole,
     required String dariJabatan,
-    required List<Map<String, String>> penerimaList, // List of {'user_id', 'role', 'jabatan'}
+    required List<Map<String, String>>
+    penerimaList, // List of {'user_id', 'role', 'jabatan'}
     required String instruksi,
     required String ttdPng,
   }) async {
     try {
+      await _validasiPengirim(dariUserId: dariUserId, dariJabatan: dariJabatan);
+
+      _validasiPenerima(dariJabatan: dariJabatan, penerimaList: penerimaList);
       if (penerimaList.isEmpty) {
         throw Exception('Penerima disposisi tidak boleh kosong');
       }
@@ -144,33 +267,49 @@ class DisposisiService {
         };
       }).toList();
 
-      debugPrint('[LOG DISPOSISI] Batch insert ${rowsToInsert.length} baris disposisi baru...');
+      debugPrint(
+        '[LOG DISPOSISI] Batch insert ${rowsToInsert.length} baris disposisi baru...',
+      );
       await _client.from(_tableName).insert(rowsToInsert);
 
       // Jika ada parent_disposisi_id, update status parent ke 'diproses' (hanya jika belum 'selesai')
       if (parentDisposisiId != null && parentDisposisiId.isNotEmpty) {
-        await _client.from(_tableName).update({
-          'status_disposisi': 'diproses',
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', parentDisposisiId).neq('status_disposisi', 'selesai');
+        await _client
+            .from(_tableName)
+            .update({
+              'status_disposisi': 'diproses',
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', parentDisposisiId)
+            .neq('status_disposisi', 'selesai');
       }
 
       // Sync deskripsi JSON metadata & status_global di tabel arsip_surat
-      final currentSurat = await _client.from('arsip_surat').select('deskripsi').eq('id', suratId).maybeSingle();
+      final currentSurat = await _client
+          .from('arsip_surat')
+          .select('deskripsi')
+          .eq('id', suratId)
+          .maybeSingle();
       Map<String, dynamic> deskripsiMap = {};
       if (currentSurat != null && currentSurat['deskripsi'] is Map) {
         deskripsiMap = Map<String, dynamic>.from(currentSurat['deskripsi']);
       }
-      final penerimaJabatanList = penerimaList.map((p) => p['jabatan'] ?? '').where((j) => j.isNotEmpty).toList();
+      final penerimaJabatanList = penerimaList
+          .map((p) => p['jabatan'] ?? '')
+          .where((j) => j.isNotEmpty)
+          .toList();
       deskripsiMap['instruksi_disposisi'] = instruksi;
       deskripsiMap['diteruskan_kepada'] = penerimaJabatanList;
       deskripsiMap['penerima_level'] = dariJabatan;
 
-      await _client.from('arsip_surat').update({
-        'status_global': 'dalam_proses',
-        'deskripsi': deskripsiMap,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', suratId);
+      await _client
+          .from('arsip_surat')
+          .update({
+            'status_global': 'dalam_proses',
+            'deskripsi': deskripsiMap,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', suratId);
 
       debugPrint('===== DISPOSISI INSERT RESULT =====');
       debugPrint('success: true');
@@ -187,13 +326,19 @@ class DisposisiService {
   /// Menandai disposisi sebagai sudah dibaca (`opened_at` = NOW(), status = 'dibaca')
   static Future<void> markAsRead(String disposisiId) async {
     try {
-      await _client.from(_tableName).update({
-        'opened_at': DateTime.now().toIso8601String(),
-        'status_disposisi': 'dibaca',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', disposisiId).filter('opened_at', 'is', null);
+      await _client
+          .from(_tableName)
+          .update({
+            'opened_at': DateTime.now().toIso8601String(),
+            'status_disposisi': 'dibaca',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', disposisiId)
+          .filter('opened_at', 'is', null);
     } catch (e) {
-      debugPrint('[LOG ERR] Gagal update opened_at disposisi ($disposisiId): $e');
+      debugPrint(
+        '[LOG ERR] Gagal update opened_at disposisi ($disposisiId): $e',
+      );
     }
   }
 
@@ -218,17 +363,31 @@ class DisposisiService {
       await _client.from(_tableName).update(updateData).eq('id', disposisiId);
 
       // Check if all active disposisi rows for this surat are completed
-      final dispRow = await _client.from(_tableName).select('surat_id').eq('id', disposisiId).maybeSingle();
+      final dispRow = await _client
+          .from(_tableName)
+          .select('surat_id')
+          .eq('id', disposisiId)
+          .maybeSingle();
       if (dispRow != null && dispRow['surat_id'] != null) {
         final suratId = dispRow['surat_id'].toString();
-        final allDisposisi = await _client.from(_tableName).select('status_disposisi').eq('surat_id', suratId);
-        final activeList = List<Map<String, dynamic>>.from(allDisposisi).where((d) => d['status_disposisi'] != 'ditarik').toList();
-        final allCompleted = activeList.isNotEmpty && activeList.every((d) => d['status_disposisi'] == 'selesai');
+        final allDisposisi = await _client
+            .from(_tableName)
+            .select('status_disposisi')
+            .eq('surat_id', suratId);
+        final activeList = List<Map<String, dynamic>>.from(
+          allDisposisi,
+        ).where((d) => d['status_disposisi'] != 'ditarik').toList();
+        final allCompleted =
+            activeList.isNotEmpty &&
+            activeList.every((d) => d['status_disposisi'] == 'selesai');
         if (allCompleted) {
-          await _client.from('arsip_surat').update({
-            'status_global': 'selesai',
-            'updated_at': DateTime.now().toIso8601String(),
-          }).eq('id', suratId);
+          await _client
+              .from('arsip_surat')
+              .update({
+                'status_global': 'selesai',
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('id', suratId);
         }
       }
 
@@ -245,10 +404,14 @@ class DisposisiService {
     required String userId,
   }) async {
     try {
-      await _client.from(_tableName).update({
-        'status_disposisi': 'ditarik',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', disposisiId).eq('dari_user_id', userId);
+      await _client
+          .from(_tableName)
+          .update({
+            'status_disposisi': 'ditarik',
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', disposisiId)
+          .eq('dari_user_id', userId);
 
       debugPrint('[LOG SUCCESS] Disposisi ($disposisiId) berhasil ditarik');
     } catch (e) {
@@ -258,7 +421,9 @@ class DisposisiService {
   }
 
   /// Memuat riwayat disposisi untuk 1 surat
-  static Future<List<DisposisiModel>> getDisposisiBySuratId(String suratId) async {
+  static Future<List<DisposisiModel>> getDisposisiBySuratId(
+    String suratId,
+  ) async {
     try {
       final data = await _client
           .from(_tableName)
@@ -269,7 +434,9 @@ class DisposisiService {
       final listMap = List<Map<String, dynamic>>.from(data);
       return listMap.map((json) => DisposisiModel.fromJson(json)).toList();
     } catch (e) {
-      debugPrint('[LOG ERR] Gagal memuat riwayat disposisi surat ($suratId): $e');
+      debugPrint(
+        '[LOG ERR] Gagal memuat riwayat disposisi surat ($suratId): $e',
+      );
       throw Exception('Gagal memuat riwayat disposisi surat: $e');
     }
   }
