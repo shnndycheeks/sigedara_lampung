@@ -376,11 +376,50 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
           ? _ErrorView(message: _error!, onRetry: _loadData)
-          : PermissionService.isAdminGedung
-          ? _buildGedungTab()
-          : PermissionService.isAdminKendaraan
-          ? _buildKendaraanTab()
-          : const Center(child: Text('Anda tidak memiliki akses peminjaman.')),
+          : (PermissionService.isAdminGedung && !PermissionService.isAdminKendaraan)
+              ? _buildGedungTab()
+              : (!PermissionService.isAdminGedung && PermissionService.isAdminKendaraan)
+                  ? _buildKendaraanTab()
+                  : PermissionService.isAdmin
+                      ? _buildDualTabs()
+                      : const Center(child: Text('Anda tidak memiliki akses peminjaman.')),
+    );
+  }
+
+  Widget _buildDualTabs() {
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Container(
+            color: AppColors.surface,
+            child: const TabBar(
+              labelColor: AppColors.primary,
+              unselectedLabelColor: AppColors.textSecondary,
+              indicatorColor: AppColors.primary,
+              indicatorSize: TabBarIndicatorSize.tab,
+              tabs: [
+                Tab(
+                  icon: Icon(Icons.meeting_room_outlined),
+                  text: 'Gedung / Ruangan',
+                ),
+                Tab(
+                  icon: Icon(Icons.directions_car_outlined),
+                  text: 'Kendaraan Dinas',
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildGedungTab(),
+                _buildKendaraanTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

@@ -506,18 +506,13 @@ class DatabaseService {
 
     final peminjaman = await _client
         .from('peminjaman')
-        .select('tipe_item')
+        .select('id')
         .eq('id', peminjamanId)
         .maybeSingle();
 
     if (peminjaman == null) {
       throw Exception('Data peminjaman tidak ditemukan');
     }
-
-    final tipeItem = (peminjaman['tipe_item'] ?? '')
-        .toString()
-        .toLowerCase()
-        .trim();
 
     // ------------------------------------------------------------
     // CEK PERMISSION
@@ -526,13 +521,7 @@ class DatabaseService {
     // Admin Kendaraan -> hanya boleh Kendaraan
     // ------------------------------------------------------------
 
-    bool bolehMemproses = false;
-
-    if (tipeItem == 'kendaraan') {
-      bolehMemproses = PermissionService.isAdminKendaraan;
-    } else if (tipeItem == 'ruangan' || tipeItem == 'gedung') {
-      bolehMemproses = PermissionService.isAdminGedung;
-    }
+    bool bolehMemproses = PermissionService.isAdmin;
 
     if (!bolehMemproses) {
       throw Exception(
