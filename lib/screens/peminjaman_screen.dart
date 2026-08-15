@@ -2113,7 +2113,21 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                           final booking = dayBookings[idx];
                           final userId = booking['user_id']?.toString() ?? '';
                           final profile = profileMap[userId];
-                          final namaPeminjam = profile?['nama']?.toString() ?? 'Pegawai';
+                          
+                          final rawKeperluan = booking['keperluan']?.toString() ?? '';
+                          String namaPeminjam = profile?['nama']?.toString() ?? 'Pegawai';
+                          if (rawKeperluan.contains('Instansi:')) {
+                            final parts = rawKeperluan.split('|');
+                            for (final part in parts) {
+                              if (part.contains('Instansi:')) {
+                                final instansiVal = part.replaceFirst('Instansi:', '').trim();
+                                if (instansiVal.isNotEmpty) {
+                                  namaPeminjam = instansiVal;
+                                }
+                              }
+                            }
+                          }
+
                           final status = booking['status']?.toString() ?? 'pending';
                           
                           final tglMulai = DateTime.tryParse(booking['tanggal_mulai'] ?? '')?.toLocal();

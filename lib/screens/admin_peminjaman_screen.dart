@@ -64,7 +64,19 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
 
         final profile = profileMap[userId];
 
-        final namaPegawai = _safeText(profile?['nama'], fallback: 'Pegawai');
+        final keperluan = _safeText(p['keperluan'], fallback: '-');
+        var namaPegawai = _safeText(profile?['nama'], fallback: 'Pegawai');
+        if (keperluan.contains('Instansi:')) {
+          final parts = keperluan.split('|');
+          for (final part in parts) {
+            if (part.contains('Instansi:')) {
+              final instansiVal = part.replaceFirst('Instansi:', '').trim();
+              if (instansiVal.isNotEmpty) {
+                namaPegawai = instansiVal;
+              }
+            }
+          }
+        }
 
         final nip = _safeText(profile?['nip'], fallback: '-');
 
@@ -73,7 +85,6 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
         final status = _mapStatus(p['status']);
         final tanggalMulai = _parseDate(p['tanggal_mulai']);
         final tanggalSelesai = _parseDate(p['tanggal_selesai']);
-        final keperluan = _safeText(p['keperluan'], fallback: '-');
 
         final baseData = {
           'id': p['id'],
