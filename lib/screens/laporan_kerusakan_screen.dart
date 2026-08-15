@@ -33,16 +33,10 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   final _deskripsiCtrl = TextEditingController();
 
   DateTime? _tanggalKejadian;
-  String _jenisAset = 'Gedung';
+  // Screen ini khusus laporan kerusakan kendaraan.
+  // Kolom database lama tetap digunakan agar tidak perlu migrasi schema.
+  static const String _jenisAset = 'Kendaraan';
   String _tingkatKerusakan = 'Ringan';
-
-  final List<String> _jenisAsetOptions = [
-    'Gedung',
-    'Kendaraan',
-    'Elektronik',
-    'Furnitur',
-    'Lainnya',
-  ];
 
   final List<String> _tingkatOptions = ['Ringan', 'Sedang', 'Berat'];
 
@@ -116,9 +110,23 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
     });
 
     try {
+      final user = _client.auth.currentUser;
+
+      if (user == null) {
+        if (!mounted) return;
+        setState(() {
+          _laporanList = [];
+          _loading = false;
+          _error = 'User belum login';
+        });
+        return;
+      }
+
       final data = await _client
           .from('laporan_kerusakan')
           .select()
+          .eq('user_id', user.id)
+          .eq('jenis_aset', _jenisAset)
           .order('created_at', ascending: false);
 
       if (!mounted) return;
@@ -227,18 +235,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
   }
 
   IconData _jenisAsetIcon(String jenis) {
-    switch (jenis.toLowerCase()) {
-      case 'gedung':
-        return Icons.domain;
-      case 'kendaraan':
-        return Icons.directions_car;
-      case 'elektronik':
-        return Icons.devices;
-      case 'furnitur':
-        return Icons.chair;
-      default:
-        return Icons.inventory_2;
-    }
+    return Icons.directions_car_rounded;
   }
 
   void _showDetail(Map<String, dynamic> item) {
@@ -528,7 +525,6 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
 
     setState(() {
       _tanggalKejadian = null;
-      _jenisAset = 'Gedung';
       _tingkatKerusakan = 'Ringan';
     });
   }
@@ -945,39 +941,39 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
             ),
             const SizedBox(height: 24),
 
-            _sectionTitle('Data Aset'),
-            const SizedBox(height: 12),
-            _dropdownField(
-              label: 'Jenis Aset',
-              value: _jenisAset,
-              items: _jenisAsetOptions,
-              icon: Icons.category_outlined,
-              onChanged: (v) => setState(() => _jenisAset = v!),
-            ),
+            _sectionTitle('Data Kendaraan'),
             const SizedBox(height: 12),
             _formField(
               controller: _namaAsetCtrl,
-              label: 'Nama Aset',
-              hint: 'Contoh: AC Ruang Rapat Lt. 1',
-              icon: Icons.widgets_outlined,
+              label: 'Nama Kendaraan',
+              hint: 'Contoh: Toyota Innova',
+              icon: Icons.directions_car_outlined,
               validator: (v) =>
-                  v == null || v.isEmpty ? 'Nama aset wajib diisi' : null,
+                  v == null || v.trim().isEmpty
+                      ? 'Nama kendaraan wajib diisi'
+                      : null,
             ),
             const SizedBox(height: 12),
             _formField(
               controller: _kodeAsetCtrl,
-              label: 'Kode Aset',
-              hint: 'Contoh: IT-E-012',
-              icon: Icons.qr_code_outlined,
+              label: 'Nomor Polisi',
+              hint: 'Contoh: BE 1234 XY',
+              icon: Icons.confirmation_number_outlined,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty
+                      ? 'Nomor polisi wajib diisi'
+                      : null,
             ),
             const SizedBox(height: 12),
             _formField(
               controller: _lokasiCtrl,
-              label: 'Lokasi Aset',
-              hint: 'Contoh: Gedung Utama Lt. 1',
+              label: 'Lokasi Kendaraan',
+              hint: 'Contoh: Garasi Biro Umum',
               icon: Icons.location_on_outlined,
               validator: (v) =>
-                  v == null || v.isEmpty ? 'Lokasi wajib diisi' : null,
+                  v == null || v.trim().isEmpty
+                      ? 'Lokasi kendaraan wajib diisi'
+                      : null,
             ),
             const SizedBox(height: 24),
 
@@ -1221,6 +1217,7 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
     );
   }
 
+
   Widget _dropdownField({
     required String label,
     required String value,
@@ -1258,29 +1255,28 @@ class _LaporanKerusakanScreenState extends State<LaporanKerusakanScreen>
               fontSize: 13.5,
               color: AppColors.textPrimary,
             ),
-            items: items
-                .map(
-                  (e) => DropdownMenuItem(
-                    value: e,
-                    child: Text(
-                      e,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        color: itemColors != null
-                            ? itemColors[e] ?? AppColors.textPrimary
-                            : AppColors.textPrimary,
-                        fontWeight: itemColors != null
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
+            items: items.map((e) {
+              return DropdownMenuItem<String>(
+                value: e,
+                child: Text(
+                  e,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: itemColors != null
+                        ? itemColors[e] ?? AppColors.textPrimary
+                        : AppColors.textPrimary,
+                    fontWeight: itemColors != null
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
-                )
-                .toList(),
+                ),
+              );
+            }).toList(),
             onChanged: onChanged,
           ),
         ),
       ),
     );
   }
+
 }

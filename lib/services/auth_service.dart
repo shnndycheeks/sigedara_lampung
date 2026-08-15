@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'permission_service.dart';
+
 enum UserRole { guest, user, admin }
 
 class AuthService {
@@ -112,19 +114,24 @@ class AuthService {
     } else {
       currentRole.value = UserRole.guest;
     }
+
+    if (currentRole.value != UserRole.guest) {
+      await PermissionService.loadPermissions();
+    }
   }
 
   static Future<void> refreshSessionRole() async {
     await loadUserRole();
   }
 
-  static Future<void> logout() async {
+  static Future logout() async {
     await _client.auth.signOut();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('remember_me');
 
     currentRole.value = UserRole.guest;
+    PermissionService.clear();
   }
 
   static bool canAccessUserArea() {

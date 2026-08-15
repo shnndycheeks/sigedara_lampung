@@ -17,7 +17,26 @@ class ArsipSuratService {
           .order('created_at', ascending: false);
 
       final listMap = List<Map<String, dynamic>>.from(data);
-      return listMap.map((json) => ArsipSurat.fromJson(json)).toList();
+      return listMap.map((json) {
+        final rawDeskripsi = json['deskripsi'] is Map ? Map<String, dynamic>.from(json['deskripsi']) : <String, dynamic>{};
+        final List<Map<String, dynamic>> combinedDisposisi = [];
+
+        if (json['disposisi'] is List) {
+          combinedDisposisi.addAll(List<Map<String, dynamic>>.from(json['disposisi']));
+        }
+
+        if (rawDeskripsi['list_disposisi'] is List) {
+          final deskripsiDisposisi = List<Map<String, dynamic>>.from(rawDeskripsi['list_disposisi']);
+          final existingIds = combinedDisposisi.map((d) => d['id']?.toString()).toSet();
+          for (final item in deskripsiDisposisi) {
+            if (!existingIds.contains(item['id']?.toString())) {
+              combinedDisposisi.add(item);
+            }
+          }
+        }
+        json['disposisi'] = combinedDisposisi;
+        return ArsipSurat.fromJson(json);
+      }).toList();
     } catch (e) {
       debugPrint('[LOG ERR] Gagal memuat arsip surat: $e');
       throw Exception('Gagal memuat arsip surat: $e');
@@ -35,18 +54,45 @@ class ArsipSuratService {
           .single();
 
       final json = Map<String, dynamic>.from(data);
-      
-      // Filter & sort disposisi order by assigned_at ASC
-      if (json['disposisi'] is List) {
-        final rawList = List<Map<String, dynamic>>.from(json['disposisi']);
-        rawList.sort((a, b) {
-          final t1 = DateTime.tryParse(a['assigned_at']?.toString() ?? '') ?? DateTime.now();
-          final t2 = DateTime.tryParse(b['assigned_at']?.toString() ?? '') ?? DateTime.now();
-          return t1.compareTo(t2);
-        });
-        json['disposisi'] = rawList;
+
+      final rawDeskripsi = json['deskripsi'] is Map ? Map<String, dynamic>.from(json['deskripsi']) : <String, dynamic>{};
+      final Map<String, Map<String, dynamic>> mergedMap = {};
+
+      if (rawDeskripsi['list_disposisi'] is List) {
+        for (final item in List<Map<String, dynamic>>.from(rawDeskripsi['list_disposisi'])) {
+          final id = item['id']?.toString() ?? '';
+          if (id.isNotEmpty) {
+            mergedMap[id] = Map<String, dynamic>.from(item);
+          }
+        }
       }
 
+      if (json['disposisi'] is List) {
+        for (final item in List<Map<String, dynamic>>.from(json['disposisi'])) {
+          final id = item['id']?.toString() ?? '';
+          if (id.isNotEmpty) {
+            if (mergedMap.containsKey(id)) {
+              final existing = mergedMap[id]!;
+              item.forEach((key, val) {
+                if (val != null && val.toString().isNotEmpty) {
+                  existing[key] = val;
+                }
+              });
+            } else {
+              mergedMap[id] = Map<String, dynamic>.from(item);
+            }
+          }
+        }
+      }
+
+      final List<Map<String, dynamic>> combinedDisposisi = mergedMap.values.toList();
+      combinedDisposisi.sort((a, b) {
+        final t1 = DateTime.tryParse(a['assigned_at']?.toString() ?? '') ?? DateTime.now();
+        final t2 = DateTime.tryParse(b['assigned_at']?.toString() ?? '') ?? DateTime.now();
+        return t1.compareTo(t2);
+      });
+
+      json['disposisi'] = combinedDisposisi;
       return ArsipSurat.fromJson(json);
     } catch (e) {
       debugPrint('[LOG ERR] Gagal memuat detail arsip surat ($id): $e');

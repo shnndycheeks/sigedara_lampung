@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/app_theme.dart';
-import '../widgets/common_widgets.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -65,34 +64,9 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   Future<void> _register() async {
-    final nama = _namaCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text.trim();
     final nip = _nipCtrl.text.trim();
-    final jabatan = _jabatanCtrl.text.trim();
-
-    if (nama.isEmpty) {
-      _showSnack('Nama lengkap wajib diisi', AppColors.error);
-      return;
-    }
-
-    if (nama.length < 3) {
-      _showSnack('Nama lengkap minimal 3 karakter', AppColors.error);
-      return;
-    }
-
-    if (nama.length > 60) {
-      _showSnack('Nama lengkap maksimal 60 karakter', AppColors.error);
-      return;
-    }
-
-    if (!_isValidName(nama)) {
-      _showSnack(
-        'Nama hanya boleh berisi huruf, spasi, titik, petik, dan strip',
-        AppColors.error,
-      );
-      return;
-    }
 
     if (email.isEmpty) {
       _showSnack('Email wajib diisi', AppColors.error);
@@ -137,9 +111,9 @@ class _RegisterScreenState extends State<RegisterScreen>
     setState(() => _loading = true);
 
     try {
-      final isNipValid = await _verifyNipPegawai(nip);
+      final pegawai = await _verifyNipPegawai(nip);
 
-      if (!isNipValid) {
+      if (pegawai == null) {
         if (!mounted) return;
 
         setState(() => _loading = false);
@@ -149,13 +123,18 @@ class _RegisterScreenState extends State<RegisterScreen>
         );
         return;
       }
+      _namaCtrl.text = pegawai['nama'] ?? '';
+      _jabatanCtrl.text = pegawai['jabatan'] ?? '';
 
       final response = await _client.auth.signUp(
         email: email,
         password: password,
         data: {
-          'nama': nama,
-          'role': 'pegawai',
+          'nama': pegawai['nama'],
+          'role': pegawai['role'],
+          'role_id': pegawai['role_id'],
+          'jabatan': pegawai['jabatan'],
+          'jabatan_id': pegawai['jabatan_id'],
           'nip': nip,
         },
       );
@@ -168,11 +147,13 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       await _client.from('profiles').insert({
         'id': user.id,
-        'nama': nama,
+        'nama': pegawai['nama'],
         'email': email,
-        'role': 'pegawai',
+        'role': pegawai['role'],
+        'role_id': pegawai['role_id'],
         'nip': nip,
-        'jabatan': jabatan.isEmpty ? null : jabatan,
+        'jabatan': pegawai['jabatan'],
+        'jabatan_id': pegawai['jabatan_id'],
       });
 
       if (!mounted) return;
@@ -187,9 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const LoginScreen(isAdmin: false),
-        ),
+        MaterialPageRoute(builder: (_) => const LoginScreen(isAdmin: false)),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -204,11 +183,6 @@ class _RegisterScreenState extends State<RegisterScreen>
     }
   }
 
-  bool _isValidName(String value) {
-    final regex = RegExp(r"^[a-zA-ZÀ-ÿ\s'.-]+$");
-    return regex.hasMatch(value);
-  }
-
   bool _isValidEmail(String value) {
     final regex = RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,}$');
     return regex.hasMatch(value);
@@ -219,28 +193,81 @@ class _RegisterScreenState extends State<RegisterScreen>
     return regex.hasMatch(value);
   }
 
-  Future<bool> _verifyNipPegawai(String nip) async {
+  Future<Map<String, dynamic>?> _verifyNipPegawai(String nip) async {
     await Future.delayed(const Duration(milliseconds: 800));
 
-    /*
-      INI MASIH DUMMY UNTUK TESTING.
-
-      Nanti kalau kamu sudah punya API resmi/BACKEND untuk cek NIP,
-      isi function ini bisa diganti.
-
-      Contoh alur nanti:
-      Flutter -> Backend kamu / Supabase Edge Function -> API BKN
-
-      Jangan taruh token API BKN langsung di Flutter.
-    */
-
-    final dummyNipPegawai = [
-      '198501012010011001',
-      '199001012015021002',
-      '199503152020121003',
+    final dummyPegawai = [
+      {
+        'nip': '198007201999121002',
+        'nama': 'MUHAMMAD YULIARDI, S.STP., M.Si.',
+        'jabatan': 'Kepala Biro Umum',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'karo',
+      },
+      {
+        'nip': '197510042010011002',
+        'nama': 'ALVIRDIAN OKTAFIANUS, S.E., S.T., M.M.',
+        'jabatan': 'Kepala Bagian Rumah Tangga',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'kabag_rt_jab',
+      },
+      {
+        'nip': '200004122021081001',
+        'nama': 'MUHAMMAD FADHEL PUSVA NEGARA, S.Tr.Ip',
+        'jabatan': 'Ketua Tim Kendaraan Dinas',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'katim_kd_jab',
+      },
+      {
+        'nip': '198711092011011010',
+        'nama': 'RICKO PAHLEVI, S.IP',
+        'jabatan': 'Ketua Tim Gedung 1',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'katim_gd_jab',
+      },
+      {
+        'nip': '199003262010101002',
+        'nama': 'WAHYUDI SAPUTRA, S.STP, M.Si.',
+        'jabatan': 'Ketua Tim Gedung 2',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'katim_gd_jab',
+      },
+      {
+        'nip': '197906092002121003',
+        'nama': 'HARRY KURNIAWANSYAH, SP., M.M.',
+        'jabatan': 'Ketua Tim Urusan Dalam',
+        'role': 'pegawai',
+        'role_id': 'pegawai',
+        'jabatan_id': 'katim_ud_jab',
+      },
+      {
+        'nip': '199904062025041008',
+        'nama': 'ENGGAL ALFRIAN, S.Kom.',
+        'jabatan': 'Admin Bagian Kendaraan Dinas',
+        'role': 'admin',
+        'role_id': 'admin',
+        'jabatan_id': 'admin_kendaraan',
+      },
+      {
+        'nip': '198903292025212025',
+        'nama': 'ANI RIANA, S.Kom',
+        'jabatan': 'Admin Bagian Gedung',
+        'role': 'admin',
+        'role_id': 'admin',
+        'jabatan_id': 'admin_gedung',
+      },
     ];
 
-    return dummyNipPegawai.contains(nip);
+    try {
+      return dummyPegawai.firstWhere((pegawai) => pegawai['nip'] == nip);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _showSnack(String message, Color color) {
@@ -249,9 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         content: Text(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
       ),
     );
@@ -261,6 +286,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     required TextEditingController controller,
     required String hint,
     required IconData prefixIcon,
+    bool readOnly = false,
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
     int? maxLength,
@@ -279,16 +305,22 @@ class _RegisterScreenState extends State<RegisterScreen>
       ),
       child: TextField(
         controller: controller,
+        readOnly: readOnly,
         maxLength: maxLength,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         textInputAction: textInputAction,
         inputFormatters: inputFormatters,
-        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0B224A)),
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF0B224A),
+        ),
         decoration: InputDecoration(
           counterText: '',
           hintText: hint,
-          hintStyle: TextStyle(color: const Color(0xFF5B6B84).withValues(alpha: 0.5)),
+          hintStyle: TextStyle(
+            color: const Color(0xFF5B6B84).withValues(alpha: 0.5),
+          ),
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
@@ -299,11 +331,11 @@ class _RegisterScreenState extends State<RegisterScreen>
             borderRadius: BorderRadius.circular(18),
             borderSide: const BorderSide(color: Color(0xFF0284C7), width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          prefixIcon: Icon(
-            prefixIcon,
-            color: const Color(0xFF0284C7),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: 16,
           ),
+          prefixIcon: Icon(prefixIcon, color: const Color(0xFF0284C7)),
         ),
       ),
     );
@@ -325,11 +357,16 @@ class _RegisterScreenState extends State<RegisterScreen>
         obscureText: _obscure,
         maxLength: 32,
         textInputAction: TextInputAction.next,
-        style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0B224A)),
+        style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF0B224A),
+        ),
         decoration: InputDecoration(
           counterText: '',
           hintText: 'Minimal 6 karakter',
-          hintStyle: TextStyle(color: const Color(0xFF5B6B84).withValues(alpha: 0.5)),
+          hintStyle: TextStyle(
+            color: const Color(0xFF5B6B84).withValues(alpha: 0.5),
+          ),
           filled: true,
           fillColor: Colors.white,
           enabledBorder: OutlineInputBorder(
@@ -340,14 +377,16 @@ class _RegisterScreenState extends State<RegisterScreen>
             borderRadius: BorderRadius.circular(18),
             borderSide: const BorderSide(color: Color(0xFF0284C7), width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-          prefixIcon: const Icon(
-            Icons.lock_outline,
-            color: Color(0xFF0284C7),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 14,
+            horizontal: 16,
           ),
+          prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF0284C7)),
           suffixIcon: IconButton(
             icon: Icon(
-              _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              _obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               color: const Color(0xFF0284C7).withValues(alpha: 0.7),
             ),
             onPressed: () {
@@ -372,12 +411,9 @@ class _RegisterScreenState extends State<RegisterScreen>
             children: [
               // Background Image
               Positioned.fill(
-                child: Image.asset(
-                  'assets/images/bg.jpg',
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset('assets/images/bg.jpg', fit: BoxFit.cover),
               ),
-              
+
               // Dynamic Aurora (Pegawai colors)
               Positioned(
                 top: -100,
@@ -492,30 +528,42 @@ class _RegisterScreenState extends State<RegisterScreen>
                             child: SlideTransition(
                               position: _slideAnim,
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(24),
                                   child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                    filter: ImageFilter.blur(
+                                      sigmaX: 12,
+                                      sigmaY: 12,
+                                    ),
                                     child: Container(
                                       padding: const EdgeInsets.all(20),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.75),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.75,
+                                        ),
                                         borderRadius: BorderRadius.circular(24),
                                         border: Border.all(
-                                          color: const Color(0xFF0284C7).withValues(alpha: 0.4),
+                                          color: const Color(
+                                            0xFF0284C7,
+                                          ).withValues(alpha: 0.4),
                                           width: 1.5,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                                            color: const Color(
+                                              0xFF0284C7,
+                                            ).withValues(alpha: 0.08),
                                             blurRadius: 24,
                                             offset: const Offset(0, 10),
                                           ),
                                         ],
                                       ),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'Buat Akun',
@@ -529,28 +577,40 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                                           const Text(
                                             'Nama Lengkap *',
-                                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B6B84), fontSize: 13),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF5B6B84),
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                           _buildInputField(
                                             controller: _namaCtrl,
-                                            hint: 'Maksimal 60 karakter',
+                                            readOnly: true,
+                                            hint: 'Nama akan muncul otomatis',
                                             prefixIcon: Icons.person_outline,
                                             maxLength: 60,
                                             keyboardType: TextInputType.name,
-                                            textCapitalization: TextCapitalization.words,
+                                            textCapitalization:
+                                                TextCapitalization.words,
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
                                                 RegExp(r"[a-zA-ZÀ-ÿ\s'.-]"),
                                               ),
-                                              LengthLimitingTextInputFormatter(60),
+                                              LengthLimitingTextInputFormatter(
+                                                60,
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 16),
 
                                           const Text(
                                             'Email *',
-                                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B6B84), fontSize: 13),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF5B6B84),
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                           _buildInputField(
@@ -558,16 +618,23 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             hint: 'contoh: pegawai@email.com',
                                             prefixIcon: Icons.email_outlined,
                                             maxLength: 80,
-                                            keyboardType: TextInputType.emailAddress,
+                                            keyboardType:
+                                                TextInputType.emailAddress,
                                             inputFormatters: [
-                                              LengthLimitingTextInputFormatter(80),
+                                              LengthLimitingTextInputFormatter(
+                                                80,
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 16),
 
                                           const Text(
                                             'Password *',
-                                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B6B84), fontSize: 13),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF5B6B84),
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                           _buildPasswordField(),
@@ -575,7 +642,11 @@ class _RegisterScreenState extends State<RegisterScreen>
 
                                           const Text(
                                             'NIP *',
-                                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B6B84), fontSize: 13),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF5B6B84),
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                           _buildInputField(
@@ -585,27 +656,40 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             maxLength: 18,
                                             keyboardType: TextInputType.number,
                                             inputFormatters: [
-                                              FilteringTextInputFormatter.digitsOnly,
-                                              LengthLimitingTextInputFormatter(18),
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                              LengthLimitingTextInputFormatter(
+                                                18,
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 16),
 
                                           const Text(
                                             'Jabatan / Unit',
-                                            style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF5B6B84), fontSize: 13),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF5B6B84),
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 8),
                                           _buildInputField(
                                             controller: _jabatanCtrl,
-                                            hint: 'Contoh: Staf Biro Umum',
+                                            readOnly: true,
+                                            hint:
+                                                'Jabatan akan muncul otomatis',
                                             prefixIcon: Icons.work_outline,
                                             maxLength: 60,
-                                            textCapitalization: TextCapitalization.words,
+                                            textCapitalization:
+                                                TextCapitalization.words,
                                             inputFormatters: [
-                                              LengthLimitingTextInputFormatter(60),
+                                              LengthLimitingTextInputFormatter(
+                                                60,
+                                              ),
                                             ],
-                                            textInputAction: TextInputAction.done,
+                                            textInputAction:
+                                                TextInputAction.done,
                                           ),
                                           const SizedBox(height: 24),
 
@@ -613,36 +697,45 @@ class _RegisterScreenState extends State<RegisterScreen>
                                             width: double.infinity,
                                             height: 56,
                                             child: ElevatedButton(
-                                              onPressed: _loading ? null : _register,
+                                              onPressed: _loading
+                                                  ? null
+                                                  : _register,
                                               style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF0284C7),
+                                                backgroundColor: const Color(
+                                                  0xFF0284C7,
+                                                ),
                                                 foregroundColor: Colors.white,
-                                                shadowColor: const Color(0xFF0284C7).withValues(alpha: 0.5),
+                                                shadowColor: const Color(
+                                                  0xFF0284C7,
+                                                ).withValues(alpha: 0.5),
                                                 elevation: 4,
                                                 shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(16),
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
                                                 ),
                                               ),
                                               child: _loading
                                                   ? const SizedBox(
                                                       width: 20,
                                                       height: 20,
-                                                      child: CircularProgressIndicator(
-                                                        color: Colors.white,
-                                                        strokeWidth: 2.5,
-                                                      ),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            color: Colors.white,
+                                                            strokeWidth: 2.5,
+                                                          ),
                                                     )
                                                   : const Text(
                                                       'Daftar Akun',
                                                       style: TextStyle(
                                                         fontSize: 15,
                                                         fontFamily: 'Poppins',
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                       ),
                                                     ),
                                             ),
                                           ),
-                                          
+
                                           const SizedBox(height: 10),
 
                                           Center(
@@ -651,7 +744,10 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                 Navigator.pushReplacement(
                                                   context,
                                                   MaterialPageRoute(
-                                                    builder: (_) => const LoginScreen(isAdmin: false),
+                                                    builder: (_) =>
+                                                        const LoginScreen(
+                                                          isAdmin: false,
+                                                        ),
                                                   ),
                                                 );
                                               },
@@ -662,12 +758,18 @@ class _RegisterScreenState extends State<RegisterScreen>
                                                     fontSize: 13,
                                                   ),
                                                   children: [
-                                                    TextSpan(text: 'Sudah punya akun? '),
+                                                    TextSpan(
+                                                      text:
+                                                          'Sudah punya akun? ',
+                                                    ),
                                                     TextSpan(
                                                       text: 'Masuk',
                                                       style: TextStyle(
-                                                        color: Color(0xFF0369A1),
-                                                        fontWeight: FontWeight.w800,
+                                                        color: Color(
+                                                          0xFF0369A1,
+                                                        ),
+                                                        fontWeight:
+                                                            FontWeight.w800,
                                                       ),
                                                     ),
                                                   ],
@@ -683,7 +785,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               ),
                             ),
                           ),
-                          
+
                           const SizedBox(height: 12),
 
                           const Center(

@@ -6,10 +6,10 @@ class FullScreenImageScreen extends StatelessWidget {
   final String heroTag;
 
   const FullScreenImageScreen({
-    Key? key,
+    super.key,
     required this.imageUrl,
     required this.heroTag,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,11 @@ class FullScreenImageScreen extends StatelessWidget {
               child: CircularProgressIndicator(color: Colors.white),
             ),
             errorBuilder: (context, error, stackTrace) => const Center(
-              child: Icon(Icons.broken_image_outlined, color: Colors.white, size: 48),
+              child: Icon(
+                Icons.broken_image_outlined,
+                color: Colors.white,
+                size: 48,
+              ),
             ),
           ),
         ),
