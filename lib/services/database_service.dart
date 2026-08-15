@@ -379,6 +379,39 @@ class DatabaseService {
     });
   }
 
+  static Future<void> tambahJadwalPeminjamanGedung({
+    required String ruanganId,
+    required DateTime tanggalMulai,
+    required DateTime tanggalSelesai,
+    required String keperluan,
+    required String userId,
+    String status = 'disetujui',
+  }) async {
+    final finalRuanganId = await _resolveRuanganId(ruanganId);
+    final namaRuangan = await _getNamaRuangan(finalRuanganId);
+
+    await _pastikanTidakBentrok(
+      tipeItem: 'ruangan',
+      itemId: finalRuanganId,
+      tanggalMulai: tanggalMulai,
+      tanggalSelesai: tanggalSelesai,
+      namaItem: namaRuangan,
+    );
+
+    await _client.from('peminjaman').insert({
+      'user_id': userId,
+      'tipe_item': 'ruangan',
+      'item_id': finalRuanganId,
+      'tanggal_mulai': tanggalMulai.toIso8601String(),
+      'tanggal_selesai': tanggalSelesai.toIso8601String(),
+      'keperluan': keperluan,
+      'status': status,
+      'catatan_admin': 'Diisi oleh Katim',
+      'approved_by': _client.auth.currentUser?.id,
+      'approved_at': DateTime.now().toIso8601String(),
+    });
+  }
+
   // ============================================================
   // PEMINJAMAN KENDARAAN
   // ============================================================

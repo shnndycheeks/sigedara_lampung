@@ -4,6 +4,8 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/navigation_service.dart';
 import '../services/database_service.dart';
+import '../services/permission_service.dart';
+
 
 // ─── Data Info Ruangan ──────────────────────────────────────────────────────
 // ─── Data Info Ruangan ──────────────────────────────────────────────────────
@@ -1954,298 +1956,547 @@ class KalenderGedungScreen extends StatefulWidget {
 }
 
 class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
-  DateTime _month = DateTime(2026, 4);
-  String _selectedRoom = 'Ruang Abung';
-  final List<String> _rooms = [
-    'Ruang Abung',
-    'Ruang Sungkai',
-    'Balai Keratun Lt. 3',
-    'Ruang Sakai',
-    'R. Rapat Utama',
-  ];
+  DateTime _month = DateTime.now();
+  String _selectedRoom = '';
+  
+  bool _isLoading = true;
+  List<String> _rooms = [];
+  Map<String, String> _roomNameToId = {};
 
-  // Mock booked dates
-  final Map<String, List<int>> _booked = {
-    'Ruang Abung': [8, 9, 12, 15, 16, 21, 22],
-    'Ruang Sungkai': [7, 8, 10, 14, 17, 23],
-    'Balai Keratun Lt. 3': [9, 11, 13, 18, 19, 24, 25],
-    'Ruang Sakai': [8, 12, 16, 20, 26, 27, 28],
-  };
+  List<Map<String, dynamic>> _dbPeminjaman = [];
+  List<Map<String, dynamic>> _dbProfiles = [];
 
-  // Detail data per room per day
-  final Map<String, Map<int, Map<String, String>>> _bookingDetails = {
-    'Ruang Abung': {
-      8: {
-        'pemakai': 'Budi Santoso',
-        'keperluan': 'Rapat Koordinasi',
-        'durasi': '08:00 – 12:00 (4 jam)',
-      },
-      9: {
-        'pemakai': 'Sari Dewi',
-        'keperluan': 'Pelatihan Staf',
-        'durasi': '09:00 – 16:00 (7 jam)',
-      },
-      12: {
-        'pemakai': 'Rendi Pratama',
-        'keperluan': 'Seminar Tahunan',
-        'durasi': '08:00 – 17:00 (9 jam)',
-      },
-      15: {
-        'pemakai': 'Hendra Putra',
-        'keperluan': 'Sidang Kepegawaian',
-        'durasi': '10:00 – 13:00 (3 jam)',
-      },
-      16: {
-        'pemakai': 'Andi Wijaya',
-        'keperluan': 'Workshop K3',
-        'durasi': '09:00 – 15:00 (6 jam)',
-      },
-      21: {
-        'pemakai': 'Dewi Lestari',
-        'keperluan': 'Rapat Evaluasi',
-        'durasi': '08:00 – 11:00 (3 jam)',
-      },
-      22: {
-        'pemakai': 'Fajar Nugroho',
-        'keperluan': 'Presentasi Proyek',
-        'durasi': '13:00 – 16:00 (3 jam)',
-      },
-    },
-    'Ruang Sungkai': {
-      7: {
-        'pemakai': 'Maya Putri',
-        'keperluan': 'Rapat Tim IT',
-        'durasi': '09:00 – 11:00 (2 jam)',
-      },
-      8: {
-        'pemakai': 'Tono Basuki',
-        'keperluan': 'Diskusi Anggaran',
-        'durasi': '10:00 – 12:00 (2 jam)',
-      },
-      10: {
-        'pemakai': 'Lina Susanti',
-        'keperluan': 'Koordinasi Unit',
-        'durasi': '08:00 – 10:00 (2 jam)',
-      },
-      14: {
-        'pemakai': 'Budi Santoso',
-        'keperluan': 'Review Laporan',
-        'durasi': '13:00 – 15:00 (2 jam)',
-      },
-      17: {
-        'pemakai': 'Sari Dewi',
-        'keperluan': 'Rapat Mingguan',
-        'durasi': '09:00 – 11:00 (2 jam)',
-      },
-      23: {
-        'pemakai': 'Hendra Putra',
-        'keperluan': 'Evaluasi Kinerja',
-        'durasi': '10:00 – 13:00 (3 jam)',
-      },
-    },
-    'Balai Keratun Lt. 3': {
-      9: {
-        'pemakai': 'Andi Wijaya',
-        'keperluan': 'Rapat Teknis',
-        'durasi': '08:00 – 10:00 (2 jam)',
-      },
-      11: {
-        'pemakai': 'Rendi Pratama',
-        'keperluan': 'Briefing Tim',
-        'durasi': '09:00 – 10:30 (1.5 jam)',
-      },
-      13: {
-        'pemakai': 'Maya Putri',
-        'keperluan': 'Diskusi Perencanaan',
-        'durasi': '13:00 – 15:00 (2 jam)',
-      },
-      18: {
-        'pemakai': 'Fajar Nugroho',
-        'keperluan': 'Rapat Koordinasi',
-        'durasi': '10:00 – 12:00 (2 jam)',
-      },
-      19: {
-        'pemakai': 'Dewi Lestari',
-        'keperluan': 'Forum Pegawai',
-        'durasi': '09:00 – 12:00 (3 jam)',
-      },
-      24: {
-        'pemakai': 'Tono Basuki',
-        'keperluan': 'Review Kontrak',
-        'durasi': '13:00 – 15:00 (2 jam)',
-      },
-      25: {
-        'pemakai': 'Lina Susanti',
-        'keperluan': 'Rapat Akhir Bulan',
-        'durasi': '09:00 – 11:00 (2 jam)',
-      },
-    },
-    'Ruang Sakai': {
-      8: {
-        'pemakai': 'Budi Santoso',
-        'keperluan': 'Pameran Produk',
-        'durasi': '08:00 – 17:00 (9 jam)',
-      },
-      12: {
-        'pemakai': 'Hendra Putra',
-        'keperluan': 'Olahraga Bersama',
-        'durasi': '07:00 – 09:00 (2 jam)',
-      },
-      16: {
-        'pemakai': 'Sari Dewi',
-        'keperluan': 'Acara HUT Kantor',
-        'durasi': '10:00 – 15:00 (5 jam)',
-      },
-      20: {
-        'pemakai': 'Rendi Pratama',
-        'keperluan': 'Lomba Antar Unit',
-        'durasi': '08:00 – 14:00 (6 jam)',
-      },
-      26: {
-        'pemakai': 'Andi Wijaya',
-        'keperluan': 'Rekreasi Pegawai',
-        'durasi': '09:00 – 12:00 (3 jam)',
-      },
-      27: {
-        'pemakai': 'Maya Putri',
-        'keperluan': 'Sosialisasi Program',
-        'durasi': '13:00 – 15:30 (2.5 jam)',
-      },
-      28: {
-        'pemakai': 'Fajar Nugroho',
-        'keperluan': 'Pelatihan Internal',
-        'durasi': '09:00 – 16:00 (7 jam)',
-      },
-    },
-  };
+  // Active bookings for the currently selected room and month
+  // Map of day -> List of booking details
+  final Map<int, List<Map<String, dynamic>>> _dailyBookings = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCalendarData();
+  }
+
+  Future<void> _loadCalendarData() async {
+    setState(() => _isLoading = true);
+    try {
+      final rooms = await DatabaseService.getRuangan();
+      final peminjaman = await DatabaseService.getSemuaPeminjaman();
+      final profiles = await DatabaseService.getPegawaiProfiles();
+
+      setState(() {
+        _rooms = rooms.map((r) => r['nama'].toString()).toList();
+        _roomNameToId = {for (final r in rooms) r['nama'].toString(): r['id'].toString()};
+
+        if (_rooms.isNotEmpty) {
+          if (_selectedRoom.isEmpty || !_rooms.contains(_selectedRoom)) {
+            _selectedRoom = _rooms.first;
+          }
+        }
+
+        _dbPeminjaman = peminjaman;
+        _dbProfiles = profiles;
+        _updateDailyBookings();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat data kalender: $e')),
+        );
+      }
+    }
+  }
+
+  void _updateDailyBookings() {
+    _dailyBookings.clear();
+    final roomId = _roomNameToId[_selectedRoom];
+    if (roomId == null) return;
+
+    for (final p in _dbPeminjaman) {
+      final tipe = (p['tipe_item'] ?? '').toString().toLowerCase();
+      final pItemId = (p['item_id'] ?? '').toString();
+      final status = (p['status'] ?? '').toString().toLowerCase();
+
+      if (tipe == 'ruangan' && pItemId == roomId && status != 'ditolak' && status != 'ditarik') {
+        final tglMulai = DateTime.tryParse(p['tanggal_mulai'] ?? '');
+        if (tglMulai != null && tglMulai.year == _month.year && tglMulai.month == _month.month) {
+          final day = tglMulai.day;
+          _dailyBookings.putIfAbsent(day, () => []).add(p);
+        }
+      }
+    }
+  }
 
   void _showDayDetail(BuildContext context, int day, bool isBooked) {
-    final Map<String, String>? detail = isBooked
-        ? (_bookingDetails[_selectedRoom]?[day])
-        : null;
+    final dayBookings = _dailyBookings[day] ?? [];
+    final profileMap = {for (final p in _dbProfiles) p['id'].toString(): p};
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isBooked
-                    ? AppColors.success.withValues(alpha: 0.15)
-                    : AppColors.info.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                isBooked ? Icons.event_busy : Icons.event_available,
-                color: isBooked ? AppColors.success : AppColors.info,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isBooked
+                        ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                        : Colors.blue.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isBooked ? Icons.event_busy : Icons.event_available,
+                    color: isBooked ? const Color(0xFFEF4444) : Colors.blue,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
                     '$day ${_monthName(_month.month)} ${_month.year}',
                     style: const TextStyle(
                       fontFamily: 'Poppins',
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
                     ),
                   ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    _selectedRoom,
+                    'Ruangan: $_selectedRoom',
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
-                      fontWeight: FontWeight.normal,
                     ),
+                  ),
+                  const Divider(height: 20, color: AppColors.divider),
+                  if (dayBookings.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Ruangan tersedia sepenuhnya untuk hari ini.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green,
+                        ),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: dayBookings.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (_, idx) {
+                          final booking = dayBookings[idx];
+                          final userId = booking['user_id']?.toString() ?? '';
+                          final profile = profileMap[userId];
+                          final namaPeminjam = profile?['nama']?.toString() ?? 'Pegawai';
+                          final status = booking['status']?.toString() ?? 'pending';
+                          
+                          final tglMulai = DateTime.tryParse(booking['tanggal_mulai'] ?? '')?.toLocal();
+                          final tglSelesai = DateTime.tryParse(booking['tanggal_selesai'] ?? '')?.toLocal();
+                          
+                          String waktuText = '-';
+                          if (tglMulai != null && tglSelesai != null) {
+                            String dua(int n) => n.toString().padLeft(2, '0');
+                            waktuText = '${dua(tglMulai.hour)}:${dua(tglMulai.minute)} – ${dua(tglSelesai.hour)}:${dua(tglSelesai.minute)}';
+                          }
+
+                          Color badgeColor = Colors.orange;
+                          if (status.toLowerCase() == 'disetujui') {
+                            badgeColor = Colors.green;
+                          } else if (status.toLowerCase() == 'ditolak') {
+                            badgeColor = Colors.red;
+                          }
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.divider),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                )
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      waktuText,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: badgeColor.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        status.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: badgeColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                _dialogRow(Icons.person_outline, 'Pemakai', namaPeminjam),
+                                const SizedBox(height: 4),
+                                _dialogRow(Icons.work_outline, 'Keperluan', booking['keperluan']?.toString() ?? '-'),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  
+                  if (PermissionService.isKatim || PermissionService.isAdmin) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(dialogCtx);
+                          _showModalTambahJadwal(context, day);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.add_circle_outline, size: 18),
+                        label: const Text(
+                          'Isi Jadwal Peminjaman (Realtime)',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  void _showModalTambahJadwal(BuildContext context, int day) {
+    final selectedDate = DateTime(_month.year, _month.month, day);
+    final keperluanCtrl = TextEditingController();
+    
+    TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 0);
+    TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
+    
+    String? selectedPegawaiId;
+    if (_dbProfiles.isNotEmpty) {
+      selectedPegawaiId = _dbProfiles.first['id'].toString();
+    }
+    
+    bool submitting = false;
+    final nav = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          String dua(int n) => n.toString().padLeft(2, '0');
+          String formatTimeStr(TimeOfDay t) => '${dua(t.hour)}:${dua(t.minute)}';
+
+          Future<void> pickStartTime() async {
+            final t = await showTimePicker(
+              context: context,
+              initialTime: startTime,
+            );
+            if (t != null) {
+              setModalState(() => startTime = t);
+            }
+          }
+
+          Future<void> pickEndTime() async {
+            final t = await showTimePicker(
+              context: context,
+              initialTime: endTime,
+            );
+            if (t != null) {
+              setModalState(() => endTime = t);
+            }
+          }
+
+          Future<void> submitJadwal() async {
+            final keperluan = keperluanCtrl.text.trim();
+            if (keperluan.isEmpty) {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Keperluan harus diisi')),
+              );
+              return;
+            }
+            if (selectedPegawaiId == null) {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Peminjam harus dipilih')),
+              );
+              return;
+            }
+
+            final startDt = DateTime(
+              selectedDate.year,
+              selectedDate.month,
+              selectedDate.day,
+              startTime.hour,
+              startTime.minute,
+            );
+
+            final endDt = DateTime(
+              selectedDate.year,
+              selectedDate.month,
+              selectedDate.day,
+              endTime.hour,
+              endTime.minute,
+            );
+
+            if (!endDt.isAfter(startDt)) {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Waktu selesai harus setelah waktu mulai')),
+              );
+              return;
+            }
+
+            setModalState(() => submitting = true);
+            try {
+              final roomId = _roomNameToId[_selectedRoom];
+              if (roomId == null) throw Exception('Ruangan tidak valid');
+
+              await DatabaseService.tambahJadwalPeminjamanGedung(
+                ruanganId: roomId,
+                tanggalMulai: startDt,
+                tanggalSelesai: endDt,
+                keperluan: keperluan,
+                userId: selectedPegawaiId!,
+              );
+
+              nav.pop();
+              _loadCalendarData();
+              
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Jadwal peminjaman berhasil disimpan!')),
+              );
+            } catch (e) {
+              setModalState(() => submitting = false);
+              scaffoldMessenger.showSnackBar(
+                SnackBar(content: Text('Gagal menyimpan jadwal: $e')),
+              );
+            }
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            title: Row(
+              children: [
+                const Icon(Icons.add_business_rounded, color: Color(0xFFF59E0B)),
+                const SizedBox(width: 10),
+                const Text(
+                  'Isi Jadwal Peminjaman',
+                  style: TextStyle(
+                    fontFamily: 'Poppins',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Ruangan: $_selectedRoom',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13),
+                  ),
+                  Text(
+                    'Tanggal: $day ${_monthName(_month.month)} ${_month.year}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+                  ),
+                  const Divider(height: 24, color: AppColors.divider),
+                  
+                  const Text('Pilih Pegawai Peminjam:', style: AppTextStyles.label),
+                  const SizedBox(height: 6),
+                  if (_dbProfiles.isEmpty)
+                    const Text('Tidak ada data pegawai.', style: TextStyle(color: Colors.red, fontSize: 12))
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedPegawaiId,
+                          isExpanded: true,
+                          items: _dbProfiles.map((p) {
+                            return DropdownMenuItem<String>(
+                              value: p['id'].toString(),
+                              child: Text(
+                                '${p['nama']} (${p['nip']})',
+                                style: const TextStyle(fontSize: 12.5),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setModalState(() => selectedPegawaiId = val);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Mulai:', style: AppTextStyles.label),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: pickStartTime,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(formatTimeStr(startTime), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    const Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Selesai:', style: AppTextStyles.label),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: pickEndTime,
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(formatTimeStr(endTime), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                    const Icon(Icons.access_time_rounded, size: 16, color: AppColors.textSecondary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  const Text('Keperluan:', style: AppTextStyles.label),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: keperluanCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      hintText: 'Rapat koordinasi, seminar, dll...',
+                      hintStyle: TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(fontSize: 13),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        content: isBooked && detail != null
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Divider(height: 16, color: AppColors.divider),
-                  _dialogRow(
-                    Icons.person_outline,
-                    'Pemakai',
-                    detail['pemakai']!,
-                  ),
-                  const SizedBox(height: 10),
-                  _dialogRow(
-                    Icons.work_outline,
-                    'Keperluan',
-                    detail['keperluan']!,
-                  ),
-                  const SizedBox(height: 10),
-                  _dialogRow(Icons.access_time, 'Durasi', detail['durasi']!),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Ruangan sudah diboking',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.success,
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Divider(height: 16, color: AppColors.divider),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 10,
-                      horizontal: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.info.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Ruangan tersedia untuk digunakan',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.info,
-                      ),
-                    ),
-                  ),
-                ],
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Batal'),
               ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Tutup'),
-          ),
-        ],
+              ElevatedButton(
+                onPressed: submitting ? null : submitJadwal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF59E0B),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: submitting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2282,7 +2533,6 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final booked = _booked[_selectedRoom] ?? [];
     final firstDay = DateTime(_month.year, _month.month, 1);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
     final startWeekday = firstDay.weekday % 7;
@@ -2302,198 +2552,229 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
         backgroundColor: AppColors.primary,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Room selector
-            SizedBox(
-              height: 38,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _rooms.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) {
-                  final sel = _rooms[i] == _selectedRoom;
-                  return GestureDetector(
-                    onTap: () => setState(() => _selectedRoom = _rooms[i]),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: sel ? AppColors.primary : AppColors.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: sel ? AppColors.primary : AppColors.divider,
-                        ),
-                      ),
-                      child: Text(
-                        _rooms[i],
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: sel ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            NeuCard(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Month nav
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: () => setState(
-                          () =>
-                              _month = DateTime(_month.year, _month.month - 1),
-                        ),
-                        icon: const Icon(
-                          Icons.chevron_left,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      Text(
-                        '${_monthName(_month.month)} ${_month.year}',
-                        style: AppTextStyles.h3,
-                      ),
-                      IconButton(
-                        onPressed: () => setState(
-                          () =>
-                              _month = DateTime(_month.year, _month.month + 1),
-                        ),
-                        icon: const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Day headers
-                  Row(
-                    children: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
-                        .map(
-                          (d) => Expanded(
-                            child: Center(
+                  if (_rooms.isEmpty)
+                    const Center(child: Text('Tidak ada data ruangan.', style: TextStyle(fontWeight: FontWeight.bold)))
+                  else ...[
+                    // Room selector
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _rooms.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, i) {
+                          final sel = _rooms[i] == _selectedRoom;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedRoom = _rooms[i];
+                                _updateDailyBookings();
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: sel ? AppColors.primary : AppColors.surface,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: sel ? AppColors.primary : AppColors.divider,
+                                ),
+                              ),
                               child: Text(
-                                d,
-                                style: AppTextStyles.caption.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
-                                  color: AppColors.primary,
+                                _rooms[i],
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: sel ? Colors.white : AppColors.textSecondary,
                                 ),
                               ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 8),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                  // Calendar grid
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          childAspectRatio: 1,
-                        ),
-                    itemCount: daysInMonth + startWeekday,
-                    itemBuilder: (_, i) {
-                      if (i < startWeekday) return const SizedBox();
-                      final day = i - startWeekday + 1;
-                      final isBooked = booked.contains(day);
-                      final isToday =
-                          DateTime.now().day == day &&
-                          DateTime.now().month == _month.month &&
-                          DateTime.now().year == _month.year;
-
-                      final Color cellColor;
-                      final Color textColor;
-                      final BoxBorder? cellBorder;
-
-                      if (isBooked) {
-                        cellColor = const Color(0xFFFEE2E2); // Soft red
-                        textColor = const Color(0xFFEF4444); // Red
-                        cellBorder = Border.all(color: const Color(0xFFFCA5A5), width: 1);
-                      } else if (isToday) {
-                        cellColor = AppColors.primary;
-                        textColor = Colors.white;
-                        cellBorder = null;
-                      } else {
-                        cellColor = Colors.white;
-                        textColor = const Color(0xFF334155); // Slate 700
-                        cellBorder = Border.all(color: const Color(0xFFE2E8F0), width: 1);
-                      }
-
-                      return GestureDetector(
-                        onTap: () => _showDayDetail(context, day, isBooked),
-                        child: Container(
-                          margin: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            color: cellColor,
-                            shape: BoxShape.circle,
-                            border: cellBorder,
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$day',
-                              style: TextStyle(
-                                fontFamily: 'Poppins',
-                                fontSize: 12,
-                                fontWeight: isToday || isBooked ? FontWeight.bold : FontWeight.w500,
-                                color: textColor,
+                    NeuCard(
+                      child: Column(
+                        children: [
+                          // Month nav
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _month = DateTime(_month.year, _month.month - 1);
+                                    _updateDailyBookings();
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.chevron_left,
+                                  color: AppColors.primary,
+                                ),
                               ),
-                            ),
+                              Text(
+                                '${_monthName(_month.month)} ${_month.year}',
+                                style: AppTextStyles.h3,
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _month = DateTime(_month.year, _month.month + 1);
+                                    _updateDailyBookings();
+                                  });
+                                },
+                                icon: const Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  // Legend
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const _LegendItem(
-                        color: Colors.white,
-                        borderColor: Color(0xFFE2E8F0),
-                        label: 'Tersedia',
+                          const SizedBox(height: 8),
+
+                          // Day headers
+                          Row(
+                            children: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+                                .map(
+                                  (d) => Expanded(
+                                    child: Center(
+                                      child: Text(
+                                        d,
+                                        style: AppTextStyles.caption.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Calendar grid
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 7,
+                                  childAspectRatio: 1,
+                                ),
+                            itemCount: daysInMonth + startWeekday,
+                            itemBuilder: (_, i) {
+                              if (i < startWeekday) return const SizedBox();
+                              final day = i - startWeekday + 1;
+                              
+                              final dayBookings = _dailyBookings[day] ?? [];
+                              final hasApproved = dayBookings.any((b) => b['status']?.toString().toLowerCase() == 'disetujui');
+                              final hasPending = dayBookings.any((b) => b['status']?.toString().toLowerCase() == 'pending');
+                              final isBooked = dayBookings.isNotEmpty;
+
+                              final isToday =
+                                  DateTime.now().day == day &&
+                                  DateTime.now().month == _month.month &&
+                                  DateTime.now().year == _month.year;
+
+                              final Color cellColor;
+                              final Color textColor;
+                              final BoxBorder? cellBorder;
+
+                              if (hasApproved) {
+                                cellColor = const Color(0xFFFEE2E2); // Soft red
+                                textColor = const Color(0xFFEF4444); // Red
+                                cellBorder = Border.all(color: const Color(0xFFFCA5A5), width: 1);
+                              } else if (hasPending) {
+                                cellColor = const Color(0xFFFEF3C7); // Soft orange
+                                textColor = const Color(0xFFD97706); // Orange
+                                cellBorder = Border.all(color: const Color(0xFFFCD34D), width: 1);
+                              } else if (isToday) {
+                                cellColor = AppColors.primary;
+                                textColor = Colors.white;
+                                cellBorder = null;
+                              } else {
+                                cellColor = Colors.white;
+                                textColor = const Color(0xFF334155); // Slate 700
+                                cellBorder = Border.all(color: const Color(0xFFE2E8F0), width: 1);
+                              }
+
+                              return GestureDetector(
+                                onTap: () => _showDayDetail(context, day, isBooked),
+                                child: Container(
+                                  margin: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: cellColor,
+                                    shape: BoxShape.circle,
+                                    border: cellBorder,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$day',
+                                      style: TextStyle(
+                                        fontFamily: 'Poppins',
+                                        fontSize: 12,
+                                        fontWeight: isToday || isBooked ? FontWeight.bold : FontWeight.w500,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 18),
+                          
+                          // Legend
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const _LegendItem(
+                                color: Colors.white,
+                                borderColor: Color(0xFFE2E8F0),
+                                label: 'Tersedia',
+                              ),
+                              const SizedBox(width: 12),
+                              _LegendItem(
+                                color: AppColors.primary,
+                                borderColor: Colors.transparent,
+                                label: 'Hari ini',
+                              ),
+                              const SizedBox(width: 12),
+                              const _LegendItem(
+                                color: Color(0xFFFEF3C7),
+                                borderColor: Color(0xFFFCD34D),
+                                label: 'Menunggu',
+                              ),
+                              const SizedBox(width: 12),
+                              const _LegendItem(
+                                color: Color(0xFFFEE2E2),
+                                borderColor: Color(0xFFFCA5A5),
+                                label: 'Booking',
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 16),
-                      _LegendItem(
-                        color: AppColors.primary,
-                        borderColor: Colors.transparent,
-                        label: 'Hari ini',
-                      ),
-                      const SizedBox(width: 16),
-                      const _LegendItem(
-                        color: Color(0xFFFEE2E2),
-                        borderColor: Color(0xFFFCA5A5),
-                        label: 'Booking',
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          ],
-        ),
-      ),
     );
   }
 
