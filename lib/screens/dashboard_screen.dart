@@ -592,7 +592,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           menungguPersetujuan: _menungguPersetujuan,
           teksMenunggu: _teksMenunggu,
           onTap: () {
-            if (PermissionService.isKaro || PermissionService.isKabag) {
+            if (PermissionService.isKaro || PermissionService.isKabag || PermissionService.isTu) {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
@@ -1143,7 +1143,7 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showCalendar = PermissionService.isKaro || PermissionService.isKabag;
+    final showCalendar = PermissionService.isKaro || PermissionService.isKabag || PermissionService.isTu;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
