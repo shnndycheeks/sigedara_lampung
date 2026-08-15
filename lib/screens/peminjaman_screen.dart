@@ -2406,8 +2406,12 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                 userId: selectedPegawaiId,
               );
 
+              setState(() {
+                _selectedRoom = dbRoomName;
+              });
+
               nav.pop();
-              _loadCalendarData();
+              await _loadCalendarData();
               
               scaffoldMessenger.showSnackBar(
                 const SnackBar(content: Text('Jadwal peminjaman berhasil disimpan!')),
