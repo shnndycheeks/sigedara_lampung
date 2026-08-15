@@ -39,6 +39,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Future<void> _loadProfileData() async {
     try {
+      await PermissionService.loadPermissions();
       final user = _client.auth.currentUser;
       if (user != null) {
         final profile = await _client
