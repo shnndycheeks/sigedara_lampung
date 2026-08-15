@@ -216,7 +216,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 ),
                               ],
                             ),
-                            if (PermissionService.isKaro || PermissionService.isKabag) ...[
+                            if (PermissionService.isKaro || PermissionService.isKabag || PermissionService.isKatim) ...[
                               const SizedBox(width: 10),
                               Container(
                                 width: 42,
@@ -451,7 +451,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (PermissionService.isKaro || PermissionService.isKabag) ...[
+                          if (PermissionService.isKaro || PermissionService.isKabag || PermissionService.isKatim) ...[
                             _SectionLabel(
                               title: 'Jadwal Ketersediaan Gedung',
                               icon: Icons.calendar_month_rounded,

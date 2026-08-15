@@ -156,13 +156,13 @@ class PermissionService {
   // ============================================================
 
   /// Boleh melihat peminjaman kendaraan.
-  static bool get canViewPeminjamanKendaraan => isTu;
+  static bool get canViewPeminjamanKendaraan => isTu || isKatim;
 
   /// Boleh melihat peminjaman gedung.
-  static bool get canViewPeminjamanGedung => isTu;
+  static bool get canViewPeminjamanGedung => isTu || isKatim;
 
   /// Boleh membuka menu peminjaman.
-  static bool get canAccessPeminjaman => isTu;
+  static bool get canAccessPeminjaman => isTu || isKatim;
 
   // ============================================================
   // PERSETUJUAN
