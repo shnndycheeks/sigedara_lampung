@@ -521,7 +521,7 @@ class DatabaseService {
     // Admin Kendaraan -> hanya boleh Kendaraan
     // ------------------------------------------------------------
 
-    bool bolehMemproses = PermissionService.isAdmin;
+    bool bolehMemproses = PermissionService.isTu;
 
     if (!bolehMemproses) {
       throw Exception(

@@ -7,6 +7,7 @@ import 'kendaraan_screen.dart';
 import 'pengingat_screen.dart';
 import 'laporan_kerusakan_screen.dart';
 import 'profile_screen.dart';
+import '../services/permission_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -82,15 +83,16 @@ class MainShellState extends State<MainShell> {
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
-                  _NavItem(
-                    icon: Icons.business_outlined,
-                    activeIcon: Icons.business,
-                    label: 'Pinjam',
-                    index: 1,
-                    current: _currentIndex,
-                    onTap: (i) => setState(() => _currentIndex = i),
-                    badge: _notifCount,
-                  ),
+                  if (PermissionService.isKatim || PermissionService.isTu)
+                    _NavItem(
+                      icon: Icons.business_outlined,
+                      activeIcon: Icons.business,
+                      label: 'Pinjam',
+                      index: 1,
+                      current: _currentIndex,
+                      onTap: (i) => setState(() => _currentIndex = i),
+                      badge: _notifCount,
+                    ),
                   _NavItem(
                     icon: Icons.directions_car_outlined,
                     activeIcon: Icons.directions_car,
