@@ -2188,7 +2188,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                       ),
                     ),
                   
-                  if (PermissionService.isKatim || PermissionService.isAdmin) ...[
+                  if (PermissionService.isKatim) ...[
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
