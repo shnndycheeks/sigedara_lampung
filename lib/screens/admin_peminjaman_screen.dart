@@ -358,7 +358,7 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
             tooltip: 'Refresh Data',
             onPressed: _loadData,
           ),
-          if (PermissionService.isAdminGedung)
+          if (PermissionService.isAdmin)
             IconButton(
               icon: const Icon(
                 Icons.calendar_month_outlined,
