@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -22,7 +21,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 
-  final SupabaseClient _client = Supabase.instance.client;
   String _adminNama = 'Admin';
   String _adminRoleLabel = 'ADMIN';
 
@@ -40,32 +38,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Future<void> _loadProfileData() async {
     try {
       await PermissionService.loadPermissions();
-      final user = _client.auth.currentUser;
-      if (user != null) {
-        final profile = await _client
-            .from('profiles')
-            .select('nama')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (profile != null && mounted) {
-          setState(() {
-            _adminNama = (profile['nama'] ?? 'Admin').toString();
-          });
-        }
-      }
     } catch (_) {}
 
-    // Tentukan label role
-    if (PermissionService.isTu) {
-      _adminRoleLabel = 'ADMIN TU';
-    } else if (PermissionService.isKaro) {
+    // Tentukan label role & Nama sapaan
+    if (PermissionService.isKaro) {
+      _adminNama = 'Kepala Biro Umum';
       _adminRoleLabel = 'KARO';
     } else if (PermissionService.isKabag) {
+      _adminNama = 'Kabag. Rumah Tangga';
       _adminRoleLabel = 'KA BAG';
     } else if (PermissionService.isKatim) {
+      _adminNama = 'Katim. Gedung 1';
       _adminRoleLabel = 'KA TIM';
+    } else if (PermissionService.isTu) {
+      _adminNama = 'Admin TU';
+      _adminRoleLabel = 'ADMIN TU';
     } else {
+      _adminNama = 'Admin';
       _adminRoleLabel = 'ADMIN';
     }
 
@@ -353,13 +342,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                           const SizedBox(height: 2),
                                           Row(
                                             children: [
-                                              Text(
-                                                _adminNama,
-                                                style: const TextStyle(
-                                                  fontFamily: 'Poppins',
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Color(0xFF0F172A),
+                                              Flexible(
+                                                child: Text(
+                                                  _adminNama,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Poppins',
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               const SizedBox(width: 6),
