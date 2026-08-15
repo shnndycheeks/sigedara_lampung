@@ -8,6 +8,7 @@ import '../services/arsip_surat_service.dart';
 import 'tambah_edit_surat_screen.dart';
 import 'surat_detail_screen.dart';
 import '../services/navigation_service.dart';
+import '../services/permission_service.dart';
 
 class AdminSuratScreen extends StatefulWidget {
   const AdminSuratScreen({super.key});
@@ -237,20 +238,22 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _tambahArsip(context),
-        backgroundColor: const Color(0xFFF59E0B),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Tambah Arsip',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-            fontSize: 13,
-          ),
-        ),
-      ),
+      floatingActionButton: PermissionService.isTu
+          ? FloatingActionButton.extended(
+              onPressed: () => _tambahArsip(context),
+              backgroundColor: const Color(0xFFF59E0B),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Tambah Arsip',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -294,7 +297,9 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
               icon: Icons.drafts_outlined,
               title: _searchQuery.isEmpty ? 'Belum ada arsip surat.' : 'Belum Ada Arsip',
               subtitle: _searchQuery.isEmpty
-                  ? 'Tekan tombol Tambah Arsip untuk mengunggah surat pertama.'
+                  ? (PermissionService.isTu
+                      ? 'Tekan tombol Tambah Arsip untuk mengunggah surat pertama.'
+                      : 'Belum ada arsip surat.')
                   : 'Tidak ditemukan arsip surat cocok dengan kueri pencarian.',
             ),
           ],
