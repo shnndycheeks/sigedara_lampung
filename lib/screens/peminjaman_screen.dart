@@ -2234,10 +2234,18 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
     
-    String? selectedPegawaiId;
-    if (_dbProfiles.isNotEmpty) {
-      selectedPegawaiId = _dbProfiles.first['id'].toString();
-    }
+    // Cari profil Ricko Pahlevi
+    final rickoProfile = _dbProfiles.firstWhere(
+      (p) {
+        final nipStr = (p['nip'] ?? '').toString().replaceAll(' ', '');
+        return nipStr == '198711092011011010' || (p['nama'] ?? '').toString().toLowerCase().contains('ricko');
+      },
+      orElse: () => _dbProfiles.isNotEmpty ? _dbProfiles.first : <String, dynamic>{},
+    );
+
+    final selectedPegawaiId = rickoProfile.isNotEmpty 
+        ? rickoProfile['id']?.toString() 
+        : 'acd9ea67-f7f6-4170-b92d-71e71deef408';
     
     bool submitting = false;
     final nav = Navigator.of(context);
@@ -2332,7 +2340,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                 tanggalMulai: startDt,
                 tanggalSelesai: endDt,
                 keperluan: keperluanLengkap,
-                userId: selectedPegawaiId!,
+                userId: selectedPegawaiId,
               );
 
               nav.pop();
@@ -2394,39 +2402,23 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                   ),
                   const Divider(height: 24, color: AppColors.divider),
                   
-                  const Text('Pilih Pegawai Peminjam:', style: AppTextStyles.label),
+                  const Text('Disetujui Oleh:', style: AppTextStyles.label),
                   const SizedBox(height: 6),
-                  if (_dbProfiles.isEmpty)
-                    const Text('Tidak ada data pegawai.', style: TextStyle(color: Colors.red, fontSize: 12))
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedPegawaiId,
-                          isExpanded: true,
-                          items: _dbProfiles.map((p) {
-                            return DropdownMenuItem<String>(
-                              value: p['id'].toString(),
-                              child: Text(
-                                '${p['nama']} (${p['nip']})',
-                                style: const TextStyle(fontSize: 12.5),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setModalState(() => selectedPegawaiId = val);
-                            }
-                          },
-                        ),
-                      ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
                     ),
+                    child: Text(
+                      rickoProfile.isNotEmpty 
+                          ? '${rickoProfile['nama']} (NIP. ${rickoProfile['nip']})'
+                          : 'Ricko Pahlevi, S.IP (NIP. 19871109 2011011010)',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                  ),
                   const SizedBox(height: 14),
 
                   const Text('Nama Instansi Peminjam:', style: AppTextStyles.label),
