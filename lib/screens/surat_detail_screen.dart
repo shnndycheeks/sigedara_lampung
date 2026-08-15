@@ -38,6 +38,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
   Uint8List? _pdfBytes;
   File? _tempPdfFile;
   bool _anyEdit = false;
+  RealtimeChannel? _disposisiSubscription;
 
   User? get currentUser => Supabase.instance.client.auth.currentUser;
 
@@ -46,11 +47,60 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     super.initState();
     _arsip = widget.surat;
     _refreshData();
+    _setupRealtimeSubscription();
     ActivityLogService.logActivity(
       action: 'PREVIEW_SURAT',
       suratId: _arsip.id,
       details: {'judul': _arsip.judul, 'nomor_surat': _arsip.nomorSurat},
     );
+  }
+
+  void _setupRealtimeSubscription() {
+    try {
+      _disposisiSubscription = Supabase.instance.client
+          .channel('realtime_disposisi_${_arsip.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'disposisi',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'surat_id',
+              value: _arsip.id,
+            ),
+            callback: (payload) {
+              debugPrint('REALTIME DISPOSISI EVENT: ${payload.eventType}');
+              if (mounted) {
+                _refreshData(showLoading: false);
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'arsip_surat',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'id',
+              value: _arsip.id,
+            ),
+            callback: (payload) {
+              debugPrint('REALTIME ARSIP SURAT EVENT: ${payload.eventType}');
+              if (mounted) {
+                _refreshData(showLoading: false);
+              }
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('Error setting up realtime subscription: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposisiSubscription?.unsubscribe();
+    super.dispose();
   }
 
   Future<void> _refreshData({bool showLoading = true}) async {
@@ -538,6 +588,15 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
   }
 
   String _formatDisplayJabatan(String raw) {
+    final clean = raw.trim();
+    if (clean == 'karo' || clean == 'kepala_biro') return 'Bapak Kepala Biro Umum';
+    if (clean == 'kabag_rt_jab' || clean == 'kabag_rt') return 'Kabag. Rumah Tangga';
+    if (clean == 'kabag_tu_jab' || clean == 'kabag_tu') return 'Kabag. Tata Usaha';
+    if (clean == 'kabag_asset_jab' || clean == 'kabag_aset' || clean == 'kabag_keuangan') return 'Kabag. Keuangan dan Aset';
+    if (clean == 'katim_ud_jab') return 'Ka. Tim Kerja . Urusan Dalam';
+    if (clean == 'katim_gd_jab') return 'Ka. Tim Kerja . Pengelolaan & Pemeliharaan Gedung 1';
+    if (clean == 'katim_kd_jab') return 'Ka. Tim Kerja . Pengelolaan & Pemeliharaan Kendaraan';
+
     return raw
         .replaceAll('Kepala Bagian Rumah Tangga', 'Kabag. Rumah Tangga')
         .replaceAll('Kepala Bagian Tata Usaha', 'Kabag. Tata Usaha')
@@ -549,7 +608,10 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
           'Kepala Bagian Keuangan dan Aset',
           'Kabag. Keuangan dan Aset',
         )
-        .replaceAll('Kabag. Administrasi dan Aset', 'Kabag. Keuangan dan Aset');
+        .replaceAll('Kabag. Administrasi dan Aset', 'Kabag. Keuangan dan Aset')
+        .replaceAll('kabag_rt_jab', 'Kabag. Rumah Tangga')
+        .replaceAll('kabag_tu_jab', 'Kabag. Tata Usaha')
+        .replaceAll('kabag_asset_jab', 'Kabag. Keuangan dan Aset');
   }
 
   Future<void> _editArsip() async {
@@ -881,57 +943,8 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
   }
 
   /// Modal Kirim Disposisi Multi-Tujuan (Karo / Kabag) dengan Anti-Spam Guard
-  Future<void> _showModalIsiDisposisi() async {
-    if (_isSubmitting || _loading) return; // Anti-Spam Check
-
-    final activeUser = currentUser;
-    final activeUserEmail = activeUser?.email ?? '';
-
-    // Check if there is an active (non-completed) disposition created by Karo
-    final hasActiveKaroDisposisi = _arsip.listDisposisi.any(
-      (d) =>
-          (d.statusDisposisi == 'pending' ||
-              d.statusDisposisi == 'dibaca' ||
-              d.statusDisposisi == 'diproses') &&
-          (d.dariJabatan.toLowerCase().contains('karo') ||
-              d.dariJabatan.toLowerCase().contains('biro')),
-    );
-
-    final isUserKaro =
-        activeUserEmail.contains('karo') ||
-        _arsip.penerimaLevel.toLowerCase().contains('biro') ||
-        _arsip.penerimaLevel.toLowerCase().contains('karo');
-
-    if (isUserKaro && hasActiveKaroDisposisi) {
-      await showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '⚠️ Disposisi Aktif Sudah Ada',
-            style: AppTextStyles.h3,
-          ),
-          content: const Text(
-            'Surat ini sudah memiliki alur disposisi aktif dari Karo.\n\nJika ingin mengubah alur disposisi, silakan melakukan "Tarik Disposisi" terlebih dahulu pada disposisi yang ada.',
-            style: AppTextStyles.body,
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
-              ),
-              child: const Text('Mengerti'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    debugPrint('===== DISPOSISI FLOW =====');
+  Future<void> _showModalIsiDisposisi({bool isKaro = true}) async {
+    debugPrint('===== DISPOSISI FLOW (isKaro: $isKaro) =====');
     debugPrint('STEP 1: OPEN FORM MODAL');
 
     final result = await showModalBottomSheet<Map<String, dynamic>>(
@@ -942,13 +955,12 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) =>
-          _ModalIsiDisposisiSheet(surat: _arsip, isSubmitting: _isSubmitting),
+          _ModalIsiDisposisiSheet(surat: _arsip, isKaro: isKaro, isSubmitting: _isSubmitting),
     );
 
     if (result != null) {
       debugPrint('STEP 2: SUBMITTED FORM WITH DATA: $result');
       final selectedDiteruskan = result['diteruskan'] as List<String>;
-
       final instruksiText = result['instruksi'] as String;
 
       setState(() {
@@ -956,32 +968,32 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
       });
 
       try {
-        if (activeUser == null) {
+        if (currentUser == null) {
           throw Exception('Sesi login telah berakhir. Silakan login kembali.');
         }
 
         await PermissionService.loadPermissions();
 
-        final jabatanAktual = PermissionService.jabatanId?.toLowerCase();
-
-        if (jabatanAktual == null || jabatanAktual.isEmpty) {
-          throw Exception('Jabatan pengguna tidak ditemukan.');
-        }
+        final rawJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+        final rawRole = (PermissionService.roleId ?? '').toLowerCase();
 
         String dariRole;
+        String dariJabatan;
 
-        if (jabatanAktual == 'karo') {
+        if (isKaro) {
           dariRole = 'kepala_biro';
-        } else if (jabatanAktual == 'kabag_tu_jab') {
-          dariRole = 'kabag_tu';
-        } else if (jabatanAktual == 'kabag_rt_jab') {
-          dariRole = 'kabag_rt';
-        } else if (jabatanAktual == 'kabag_asset_jab') {
-          dariRole = 'kabag_aset';
+          dariJabatan = 'karo';
         } else {
-          throw Exception(
-            'Jabatan ini tidak memiliki kewenangan membuat disposisi.',
-          );
+          if (rawJabatan.contains('tu') || rawRole.contains('tu')) {
+            dariRole = 'kabag_tu';
+            dariJabatan = 'kabag_tu_jab';
+          } else if (rawJabatan.contains('rt') || rawRole.contains('rt')) {
+            dariRole = 'kabag_rt';
+            dariJabatan = 'kabag_rt_jab';
+          } else {
+            dariRole = 'kabag_aset';
+            dariJabatan = 'kabag_asset_jab';
+          }
         }
 
         debugPrint(
@@ -1065,16 +1077,24 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
           parentId = _arsip.listDisposisi.last.id;
         }
 
+        final ttdPath = PermissionService.isKaro
+            ? 'signatures/default/ttd_karo.png'
+            : dariRole == 'kabag_tu'
+                ? 'signatures/default/ttd_kabag_tu.png'
+                : dariRole == 'kabag_rt'
+                    ? 'signatures/default/ttd_kabag_rt.png'
+                    : 'signatures/default/ttd_kabag_aset.png';
+
         debugPrint('STEP 4: INSERTING DISPOSISI TO DATABASE...');
         await DisposisiService.kirimDisposisiMulti(
           suratId: _arsip.id,
           parentDisposisiId: parentId,
-          dariUserId: activeUser.id,
+          dariUserId: currentUser!.id,
           dariRole: dariRole,
-          dariJabatan: jabatanAktual,
+          dariJabatan: dariJabatan,
           penerimaList: penerimaList,
           instruksi: instruksiText,
-          ttdPng: 'signatures/default/ttd_karo.png',
+          ttdPng: ttdPath,
         );
         debugPrint('STEP 5: INSERT SUCCESSFUL');
 
@@ -1124,6 +1144,161 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     }
   }
 
+  bool get _canEditDeleteSurat {
+    if (PermissionService.isAdmin) return true;
+    final isTu = PermissionService.isTu;
+    final isUploader = currentUser != null && currentUser!.id == _arsip.uploadedBy;
+    final isMenungguKaro = _arsip.statusGlobal.toLowerCase() == 'menunggu_karo';
+    return isTu && isUploader && isMenungguKaro;
+  }
+
+  bool get _canUserDisposisi {
+    if (PermissionService.isTu) return false;
+    final status = _arsip.statusGlobal.toLowerCase();
+    if (status == 'menunggu_karo' || _arsip.listDisposisi.isEmpty) {
+      return PermissionService.isKaro;
+    } else if (status == 'menunggu_kabag') {
+      if (!PermissionService.isKabag) return false;
+      final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+      final targets = _arsip.listKabagTarget.map((t) => t.toLowerCase()).toList();
+      if (targets.isEmpty) return true;
+      return targets.any((t) => t.contains(userJabatan) || userJabatan.contains(t) || _isKabagJabatanMatch(t, userJabatan));
+    }
+    return false;
+  }
+
+  bool get _canUserComplete {
+    final status = _arsip.statusGlobal.toLowerCase();
+    if (status != 'menunggu_katim') return false;
+    if (!PermissionService.isKatim) return false;
+    final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+    final targets = _arsip.listKatimTarget.map((t) => t.toLowerCase()).toList();
+    if (targets.isEmpty) return true;
+    return targets.any((t) => t.contains(userJabatan) || userJabatan.contains(t) || _isKatimJabatanMatch(t, userJabatan));
+  }
+
+  bool _isKabagJabatanMatch(String targetLabel, String userJabatanId) {
+    final t = targetLabel.toLowerCase();
+    final j = userJabatanId.toLowerCase();
+    if (t.contains('tata usaha') && j.contains('tu')) {
+      return true;
+    }
+    if (t.contains('rumah tangga') && j.contains('rt')) {
+      return true;
+    }
+    if ((t.contains('keuangan') || t.contains('aset') || t.contains('administrasi')) &&
+        (j.contains('asset') || j.contains('aset') || j.contains('keu'))) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isKatimJabatanMatch(String targetLabel, String userJabatanId) {
+    final t = targetLabel.toLowerCase();
+    final j = userJabatanId.toLowerCase();
+    if (t.contains('urusan dalam') && j.contains('ud')) return true;
+    if (t.contains('gedung') && j.contains('gd')) return true;
+    if (t.contains('kendaraan') && j.contains('kd')) return true;
+    return false;
+  }
+
+  Widget _buildDynamicActionButton() {
+    final status = _arsip.statusGlobal.toLowerCase();
+
+    if (status == 'menunggu_karo') {
+      final canAct = _canUserDisposisi;
+      return ElevatedButton.icon(
+        onPressed: (canAct && !_loading && !_isSubmitting) ? _showModalIsiDisposisi : null,
+        icon: const Icon(Icons.forward_to_inbox_rounded, color: Colors.white),
+        label: Text(
+          canAct
+              ? '2. Buat & Kirim Disposisi Multi-Tujuan (Karo ➔ Kabag)'
+              : '2. Disposisi Surat (Hanya Kepala Biro)',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canAct ? const Color(0xFFF59E0B) : Colors.grey,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else if (status == 'menunggu_kabag') {
+      final canAct = _canUserDisposisi;
+      return ElevatedButton.icon(
+        onPressed: (canAct && !_loading && !_isSubmitting) ? _showModalIsiDisposisi : null,
+        icon: const Icon(Icons.forward_to_inbox_rounded, color: Colors.white),
+        label: Text(
+          canAct
+              ? '2. Buat & Kirim Disposisi Multi-Tujuan (Kabag ➔ Katim)'
+              : '2. Disposisi Lanjutan (Hanya Kabag Dituju)',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canAct ? const Color(0xFFF59E0B) : Colors.grey,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else if (status == 'menunggu_katim') {
+      final canAct = _canUserComplete;
+      DisposisiModel? pendingDisp;
+      if (_arsip.listDisposisi.isNotEmpty) {
+        pendingDisp = _arsip.listDisposisi.last;
+      }
+      return ElevatedButton.icon(
+        onPressed: (canAct && !_loading && !_isSubmitting && pendingDisp != null)
+            ? () => _showModalCatatanSelesai(pendingDisp!)
+            : null,
+        icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+        label: Text(
+          canAct
+              ? '2. Selesaikan Perintah & Isi Catatan (Katim)'
+              : '2. Penyelesaian Perintah (Hanya Katim Dituju)',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: canAct ? AppColors.success : Colors.grey,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else if (status == 'selesai') {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.success.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.success),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, color: AppColors.success, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Alur Disposisi & Perintah Telah Selesai',
+              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return ElevatedButton.icon(
+        onPressed: (_canUserDisposisi && !_loading && !_isSubmitting) ? _showModalIsiDisposisi : null,
+        icon: const Icon(Icons.forward_to_inbox_rounded, color: Colors.white),
+        label: const Text(
+          '2. Buat & Kirim Disposisi Multi-Tujuan',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFF59E0B),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasFile = _arsip.fileUrl.isNotEmpty;
@@ -1145,16 +1320,18 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
             onPressed: () => Navigator.pop(context, _anyEdit),
           ),
           actions: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: (_loading || _isSubmitting) ? null : _editArsip,
-              tooltip: 'Edit Arsip',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline_rounded),
-              onPressed: (_loading || _isSubmitting) ? null : _hapusArsip,
-              tooltip: 'Hapus Arsip',
-            ),
+            if (_canEditDeleteSurat) ...[
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: (_loading || _isSubmitting) ? null : _editArsip,
+                tooltip: 'Edit Arsip',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                onPressed: (_loading || _isSubmitting) ? null : _hapusArsip,
+                tooltip: 'Hapus Arsip',
+              ),
+            ],
           ],
         ),
         body: _loading
@@ -1170,107 +1347,17 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                       const SizedBox(height: 16),
                     ],
 
-                    // LEMBAR DISPOSISI DIGITAL
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: [
-                        const Text(
-                          'Lembar Disposisi Digital',
-                          style: AppTextStyles.h3,
-                        ),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            ElevatedButton.icon(
-                              onPressed: (_loading || _isSubmitting)
-                                  ? null
-                                  : _showModalIsiDisposisi,
-                              icon: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.edit_note_rounded,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                              label: Text(
-                                _isSubmitting
-                                    ? 'Memproses...'
-                                    : 'Isi Disposisi',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFF59E0B),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: (_loading || _isSubmitting)
-                                  ? null
-                                  : _cetakLembarDisposisi,
-                              icon: const Icon(
-                                Icons.print_rounded,
-                                size: 16,
-                                color: Color(0xFFD97706),
-                              ),
-                              label: const Text(
-                                'Cetak',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFFD97706),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFFF59E0B),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
                     LembarDisposisiWidget(
                       surat: _arsip,
-                      isEditable: true,
-                      onUpdateDisposisi:
-                          (newDiteruskan, newInstruksi, newLevel) {
-                            _onDirectDisposisiChanged(
-                              newDiteruskan,
-                              newInstruksi,
-                              newLevel,
-                            );
-                          },
+                      onIsiDisposisiKaro: () => _showModalIsiDisposisi(isKaro: true),
+                      onIsiDisposisiKabag: () => _showModalIsiDisposisi(isKaro: false),
+                      onCetak: _cetakLembarDisposisi,
+                      isKaroActionEnabled: _canUserDisposisi &&
+                          (_arsip.statusGlobal.toLowerCase() == 'menunggu_karo' ||
+                              _arsip.listDisposisi.isEmpty),
+                      isKabagActionEnabled: _canUserDisposisi &&
+                          _arsip.statusGlobal.toLowerCase() == 'menunggu_kabag',
+                      isSubmitting: _loading || _isSubmitting,
                     ),
                     const SizedBox(height: 20),
 
@@ -1436,34 +1523,12 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Button 2: Disposisi Multi-Tujuan
+                    // Dynamic Action Button (Button 2)
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: (_loading || _isSubmitting)
-                            ? null
-                            : _showModalIsiDisposisi,
-                        icon: const Icon(
-                          Icons.forward_to_inbox_rounded,
-                          color: Colors.white,
-                        ),
-                        label: const Text(
-                          '2. Buat & Kirim Disposisi Multi-Tujuan',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: Colors.white,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF59E0B),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
+                      child: _buildDynamicActionButton(),
                     ),
+
                     const SizedBox(height: 20),
 
                     // File Preview Area
@@ -1692,85 +1757,47 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     );
   }
 
-  Future<void> _onDirectDisposisiChanged(
-    List<String> newDiteruskan,
-    String newInstruksi,
-    String newLevel,
-  ) async {
-    try {
-      final updatedMap = Map<String, dynamic>.from(_arsip.deskripsi);
-      updatedMap['penerima_level'] = newLevel;
-      updatedMap['diteruskan_kepada'] = newDiteruskan;
-      updatedMap['instruksi_disposisi'] = newInstruksi;
-
-      await ArsipSuratService.updateArsip(
-        id: _arsip.id,
-        judul: _arsip.judul,
-        kategori: _arsip.kategori,
-        deskripsi: updatedMap,
-        fileUrl: _arsip.fileUrl,
-        filePath: _arsip.filePath,
-        fileSize: _arsip.fileSize,
-      );
-
-      await _refreshData(showLoading: false);
-    } catch (e) {
-      debugPrint('Error updating direct disposisi: $e');
-    }
-  }
-
   Widget _buildAlurDisposisiTimeline() {
     final list = _arsip.listDisposisi;
 
     // STEP 1: TU Scan (True once letter exists)
     final bool isTuDone = true;
 
-    // STEP 2: Karo (True once Karo sends initial disposition)
-    final bool isKaroDone = list.any(
-      (d) =>
-          d.dariJabatan.toLowerCase().contains('biro') ||
-          d.dariJabatan.toLowerCase().contains('karo'),
-    );
+    // STEP 2: Karo (True once Karo sends initial disposition or status is past Karo)
+    final bool isKaroDone = _arsip.listKaroDisposisi.isNotEmpty ||
+        list.any(
+          (d) =>
+              d.dariJabatan.toLowerCase().contains('biro') ||
+              d.dariJabatan.toLowerCase().contains('karo') ||
+              d.dariRole.toLowerCase().contains('karo') ||
+              d.dariRole.toLowerCase().contains('kepala_biro'),
+        ) ||
+        _arsip.statusGlobal.toLowerCase() != 'menunggu_karo';
 
-    // STEP 3: Kabag / Sespri (True ONLY when BOTH Condition A and Condition B are met)
-    // Kondisi A: Task assigned to Kabag/Sespri is completed ('selesai' + Catatan filled)
-    final bool hasKabagSespriTaskCompleted = list.any((d) {
-      final isTargetKabagSespri =
-          d.kepadaJabatan.toLowerCase().contains('bagian') ||
-          d.kepadaJabatan.toLowerCase().contains('kabag') ||
-          d.kepadaJabatan.toLowerCase().contains('sespri');
-      final isSelesai = d.statusDisposisi.toLowerCase() == 'selesai';
-      final hasCatatan = (d.catatan ?? '').trim().isNotEmpty;
-      return isTargetKabagSespri && isSelesai && hasCatatan;
-    });
+    // STEP 3: Kabag / Sespri (True once Kabag forwards disposition or status is past Kabag)
+    final bool isKabagSespriDone = _arsip.listKabagDisposisi.isNotEmpty ||
+        list.any(
+          (d) =>
+              d.dariJabatan.toLowerCase().contains('bagian') ||
+              d.dariJabatan.toLowerCase().contains('kabag') ||
+              d.dariJabatan.toLowerCase().contains('sespri') ||
+              d.dariRole.toLowerCase().contains('kabag'),
+        ) ||
+        _arsip.statusGlobal.toLowerCase() == 'menunggu_katim' ||
+        _arsip.statusGlobal.toLowerCase() == 'selesai';
 
-    // Kondisi B: Kabag/Sespri has created/forwarded a child disposition to Katim/Tim Kerja
-    final bool hasKabagSespriForwardedToKatim = list.any((d) {
-      final isSenderKabagSespri =
-          d.dariJabatan.toLowerCase().contains('bagian') ||
-          d.dariJabatan.toLowerCase().contains('kabag') ||
-          d.dariJabatan.toLowerCase().contains('sespri');
-      final isTargetKatim =
-          d.kepadaJabatan.toLowerCase().contains('tim kerja') ||
-          d.kepadaJabatan.toLowerCase().contains('katim');
-      return isSenderKabagSespri && isTargetKatim;
-    });
-
-    final bool isKabagSespriDone =
-        hasKabagSespriTaskCompleted && hasKabagSespriForwardedToKatim;
-
-    // STEP 4: Katim (True ONLY when Katim task has status_disposisi == 'selesai' AND has Catatan)
-    final bool isKatimDone = list.any((d) {
-      final isKatim =
-          d.kepadaJabatan.toLowerCase().contains('tim kerja') ||
-          d.kepadaJabatan.toLowerCase().contains('katim') ||
-          d.dariJabatan.toLowerCase().contains('tim kerja') ||
-          d.dariJabatan.toLowerCase().contains('katim');
-      final isSelesai = d.statusDisposisi.toLowerCase() == 'selesai';
-      final hasCatatan = (d.catatan ?? '').trim().isNotEmpty;
-
-      return isKatim && isSelesai && hasCatatan;
-    });
+    // STEP 4: Katim (True ONLY when Katim task has status_disposisi == 'selesai' OR has Catatan)
+    final bool isKatimDone = _arsip.statusGlobal.toLowerCase() == 'selesai' ||
+        list.any((d) {
+          final isKatim =
+              d.kepadaJabatan.toLowerCase().contains('tim kerja') ||
+              d.kepadaJabatan.toLowerCase().contains('katim') ||
+              d.dariJabatan.toLowerCase().contains('tim kerja') ||
+              d.dariJabatan.toLowerCase().contains('katim');
+          final isSelesai = d.statusDisposisi.toLowerCase() == 'selesai';
+          final hasCatatan = (d.catatan ?? '').trim().isNotEmpty;
+          return isKatim && (isSelesai || hasCatatan);
+        });
 
     int currentStep = 1;
     if (isKaroDone) currentStep = 2;
@@ -1938,11 +1965,16 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                 isSender &&
                 (item.statusDisposisi == 'pending' ||
                     item.statusDisposisi == 'dibaca');
+            final isKatimTarget =
+                item.kepadaJabatan.toLowerCase().contains('tim kerja') ||
+                item.kepadaJabatan.toLowerCase().contains('katim') ||
+                item.kepadaRole.toLowerCase().contains('katim');
+
             final isCanBeCompleted =
-                isRecipient &&
                 (item.statusDisposisi == 'pending' ||
                     item.statusDisposisi == 'dibaca' ||
-                    item.statusDisposisi == 'diproses');
+                    item.statusDisposisi == 'diproses') &&
+                (isRecipient || PermissionService.isKatim || PermissionService.isAdmin || isKatimTarget);
 
             String dua(int n) => n.toString().padLeft(2, '0');
             final dt = item.assignedAt;
@@ -2057,26 +2089,30 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    border: Border.all(
-                                      color: Colors.green.shade400,
-                                    ),
-                                    borderRadius: BorderRadius.circular(4),
+                                    color: Colors.green.shade600,
+                                    borderRadius: BorderRadius.circular(6),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x20000000),
+                                        blurRadius: 2,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
                                   ),
                                   child: const Row(
                                     children: [
                                       Icon(
-                                        Icons.check_circle_outline,
-                                        size: 10,
-                                        color: Colors.green,
+                                        Icons.check_circle_rounded,
+                                        size: 12,
+                                        color: Colors.white,
                                       ),
-                                      SizedBox(width: 2),
+                                      SizedBox(width: 4),
                                       Text(
-                                        'Selesaikan Tugas',
+                                        'Selesaikan',
                                         style: TextStyle(
-                                          fontSize: 9.5,
+                                          fontSize: 10.5,
                                           fontWeight: FontWeight.bold,
-                                          color: Colors.green,
+                                          color: Colors.white,
                                         ),
                                       ),
                                     ],
@@ -2258,10 +2294,13 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
 class _ModalIsiDisposisiSheet extends StatefulWidget {
   final ArsipSurat surat;
   final bool isSubmitting;
+  final bool isKaro;
 
   const _ModalIsiDisposisiSheet({
+    super.key,
     required this.surat,
     required this.isSubmitting,
+    this.isKaro = true,
   });
 
   @override
@@ -2326,20 +2365,16 @@ class _ModalIsiDisposisiSheetState extends State<_ModalIsiDisposisiSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final jabatanId = PermissionService.jabatanId?.toLowerCase();
+    final bool isKaroTurn = widget.isKaro;
 
-    final bool isKaro = jabatanId == 'karo';
-
-    final bool isKabag =
-        jabatanId == 'kabag_tu_jab' ||
-        jabatanId == 'kabag_rt_jab' ||
-        jabatanId == 'kabag_asset_jab';
-
-    final Map<String, String> targetOptions = isKaro
+    final Map<String, String> targetOptions = isKaroTurn
         ? _karoTargets
-        : isKabag
-        ? _kabagTargets
-        : <String, String>{};
+        : _kabagTargets;
+
+    final String sheetTitle = isKaroTurn
+        ? 'Disposisi Karo ➔ Kabag'
+        : 'Disposisi Kabag ➔ Katim';
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
@@ -2355,9 +2390,9 @@ class _ModalIsiDisposisiSheetState extends State<_ModalIsiDisposisiSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Catatan Disposisi',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  sheetTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -2366,32 +2401,54 @@ class _ModalIsiDisposisiSheetState extends State<_ModalIsiDisposisiSheet> {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // =====================================================
-            // PENGIRIM
-            // =====================================================
-            const SizedBox(height: 16),
-
-            // =====================================================
-            // PENERIMA
-            // =====================================================
+            // PENERIMA CHECKBOX LIST
             const Text(
               'Diteruskan Kepada Yth. (Minimal 1):',
               style: AppTextStyles.label,
             ),
-
             const SizedBox(height: 6),
 
-            if (targetOptions.isEmpty)
-              // =====================================================
-              // INSTRUKSI
-              // =====================================================
-              const Text(
-                'Catatan / Instruksi Disposisi',
-                style: AppTextStyles.label,
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: Column(
+                children: targetOptions.keys.map((targetLabel) {
+                  final isChecked = _selectedDiteruskan.contains(targetLabel);
+                  return CheckboxListTile(
+                    title: Text(
+                      targetLabel,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    value: isChecked,
+                    activeColor: const Color(0xFFF59E0B),
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _selectedDiteruskan.add(targetLabel);
+                        } else {
+                          _selectedDiteruskan.remove(targetLabel);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
 
+            const SizedBox(height: 16),
+
+            // INSTRUKSI DISPOSISI
+            const Text(
+              'Catatan / Instruksi Disposisi:',
+              style: AppTextStyles.label,
+            ),
             const SizedBox(height: 6),
 
             TextField(
@@ -2399,16 +2456,14 @@ class _ModalIsiDisposisiSheetState extends State<_ModalIsiDisposisiSheet> {
               focusNode: _instruksiFocusNode,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText: 'Tuliskan catatan instruksi pimpinan di sini...',
+                hintText: 'Tuliskan catatan instruksi di sini...',
                 border: OutlineInputBorder(),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // =====================================================
             // TOMBOL KIRIM
-            // =====================================================
             SizedBox(
               width: double.infinity,
               height: 48,

@@ -69,6 +69,36 @@ class PermissionService {
   static bool get hasValidRole => isAdmin || isPegawai;
 
   // ============================================================
+  // WORKFLOW ROLE & JABATAN DISPOSISI
+  // ============================================================
+
+  /// General TU Staff check
+  static bool get isTu =>
+      _roleId == 'tu' || _jabatanId == 'tu_staff';
+
+  /// Kepala Biro (Karo)
+  static bool get isKaro =>
+      _roleId == 'kepala_biro' || _jabatanId == 'karo';
+
+  /// Kepala Bagian (Kabag)
+  static bool get isKabag =>
+      _roleId == 'kabag_tu' ||
+      _roleId == 'kabag_rt' ||
+      _roleId == 'kabag_aset' ||
+      _roleId == 'kabag' ||
+      _jabatanId == 'kabag_tu_jab' ||
+      _jabatanId == 'kabag_rt_jab' ||
+      _jabatanId == 'kabag_asset_jab';
+
+  /// Ketua Tim Kerja (Katim)
+  static bool get isKatim =>
+      _roleId == 'katim' ||
+      _jabatanId == 'katim_gd_jab' ||
+      _jabatanId == 'katim_kd_jab' ||
+      _jabatanId == 'katim_ud_jab';
+
+
+  // ============================================================
   // JABATAN ADMIN
   // ============================================================
 

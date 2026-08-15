@@ -32,9 +32,19 @@ class ArsipSurat {
   final List<DisposisiModel> listDisposisi;
 
   String get statusLabel {
-    switch (statusGlobal) {
+    switch (statusGlobal.toLowerCase()) {
       case 'menunggu_karo':
         return 'Menunggu Disposisi Kepala Biro';
+      case 'menunggu_kabag':
+        if (listKabagTarget.isNotEmpty) {
+          return 'Menunggu Disposisi ${listKabagTarget.join(", ")}';
+        }
+        return 'Menunggu Disposisi Kabag';
+      case 'menunggu_katim':
+        if (listKatimTarget.isNotEmpty) {
+          return 'Menunggu ${listKatimTarget.join(", ")}';
+        }
+        return 'Menunggu Katim';
       case 'dalam_proses':
         if (listDisposisi.isNotEmpty) {
           final pendingDisposisi = listDisposisi.where((d) => d.statusDisposisi == 'pending' || d.statusDisposisi == 'dibaca');
@@ -51,6 +61,72 @@ class ArsipSurat {
         return 'Menunggu Disposisi Kepala Biro';
     }
   }
+
+  /// Record Disposisi yang dibuat oleh Karo
+  List<DisposisiModel> get listKaroDisposisi {
+    return listDisposisi.where((d) {
+      final dari = d.dariJabatan.toLowerCase().trim();
+      final role = d.dariRole.toLowerCase().trim();
+      final isExplicitKaro = dari.contains('biro') ||
+          dari.contains('karo') ||
+          role.contains('karo') ||
+          role.contains('biro') ||
+          role.contains('kepala_biro') ||
+          dari == 'karo';
+      if (isExplicitKaro) return true;
+
+      final isKabag = dari.contains('kabag') || dari.contains('bagian') || role.contains('kabag');
+      final isKatim = dari.contains('katim') || dari.contains('tim kerja') || role.contains('katim');
+      if (!isKabag && !isKatim && (d.parentDisposisiId == null || d.parentDisposisiId!.isEmpty)) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  /// Record Disposisi yang dibuat oleh Kabag
+  List<DisposisiModel> get listKabagDisposisi {
+    final karoIds = listKaroDisposisi.map((d) => d.id).toSet();
+    return listDisposisi.where((d) {
+      if (karoIds.contains(d.id)) return false;
+      final dari = d.dariJabatan.toLowerCase().trim();
+      final role = d.dariRole.toLowerCase().trim();
+      final isKaro = dari.contains('biro') ||
+          dari.contains('karo') ||
+          role.contains('karo') ||
+          role.contains('biro') ||
+          role.contains('kepala_biro') ||
+          dari == 'karo';
+      if (isKaro) return false;
+
+      final isKabag = dari.contains('kabag') || dari.contains('bagian') || role.contains('kabag');
+      if (isKabag) return true;
+
+      if (d.parentDisposisiId != null && d.parentDisposisiId!.isNotEmpty) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  /// Targeted Kabags from Karo Disposisi
+  List<String> get listKabagTarget {
+    return listKaroDisposisi
+        .where((d) => d.statusDisposisi != 'ditarik')
+        .map((d) => d.kepadaJabatan)
+        .toSet()
+        .toList();
+  }
+
+  /// Targeted Katims from Kabag Disposisi
+  List<String> get listKatimTarget {
+    return listKabagDisposisi
+        .where((d) => d.statusDisposisi != 'ditarik')
+        .map((d) => d.kepadaJabatan)
+        .toSet()
+        .toList();
+  }
+
 
   // Backward compatibility getters for UI screens
   String get penerimaLevel {
@@ -142,12 +218,36 @@ class ArsipSurat {
       parsedTglDiterima = DateTime.tryParse(tglDiterimaRaw.toString());
     }
 
-    List<DisposisiModel> disposisiList = [];
+    final List<Map<String, dynamic>> rawCombined = [];
+    final Set<String> existingIds = {};
+
     if (json['disposisi'] is List) {
-      disposisiList = (json['disposisi'] as List)
-          .map((e) => DisposisiModel.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
+      for (final item in (json['disposisi'] as List)) {
+        if (item is Map) {
+          final map = Map<String, dynamic>.from(item);
+          final id = map['id']?.toString() ?? '';
+          rawCombined.add(map);
+          if (id.isNotEmpty) existingIds.add(id);
+        }
+      }
     }
+
+    if (rawDeskripsi['list_disposisi'] is List) {
+      for (final item in (rawDeskripsi['list_disposisi'] as List)) {
+        if (item is Map) {
+          final map = Map<String, dynamic>.from(item);
+          final id = map['id']?.toString() ?? '';
+          if (id.isEmpty || !existingIds.contains(id)) {
+            rawCombined.add(map);
+            if (id.isNotEmpty) existingIds.add(id);
+          }
+        }
+      }
+    }
+
+    List<DisposisiModel> disposisiList = rawCombined
+        .map((e) => DisposisiModel.fromJson(e))
+        .toList();
 
     return ArsipSurat(
       id: json['id'] ?? '',
