@@ -2228,7 +2228,8 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
 
   void _showModalTambahJadwal(BuildContext context, int day) {
     final selectedDate = DateTime(_month.year, _month.month, day);
-    final keperluanCtrl = TextEditingController();
+    final instansiCtrl = TextEditingController();
+    final tujuanCtrl = TextEditingController();
     
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
@@ -2270,10 +2271,18 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
           }
 
           Future<void> submitJadwal() async {
-            final keperluan = keperluanCtrl.text.trim();
-            if (keperluan.isEmpty) {
+            final instansi = instansiCtrl.text.trim();
+            final tujuan = tujuanCtrl.text.trim();
+
+            if (instansi.isEmpty) {
               scaffoldMessenger.showSnackBar(
-                const SnackBar(content: Text('Keperluan harus diisi')),
+                const SnackBar(content: Text('Nama instansi harus diisi')),
+              );
+              return;
+            }
+            if (tujuan.isEmpty) {
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(content: Text('Tujuan peminjaman harus diisi')),
               );
               return;
             }
@@ -2312,11 +2321,17 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
               final roomId = _roomNameToId[_selectedRoom];
               if (roomId == null) throw Exception('Ruangan tidak valid');
 
+              final keperluanLengkap = [
+                tujuan,
+                'Instansi: $instansi',
+                'Ruangan: $_selectedRoom',
+              ].join(' | ');
+
               await DatabaseService.tambahJadwalPeminjamanGedung(
                 ruanganId: roomId,
                 tanggalMulai: startDt,
                 tanggalSelesai: endDt,
-                keperluan: keperluan,
+                keperluan: keperluanLengkap,
                 userId: selectedPegawaiId!,
               );
 
@@ -2357,10 +2372,22 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Ruangan: $_selectedRoom',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13),
+                  const Text('Nama Gedung yang Dipinjam:', style: AppTextStyles.label),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Text(
+                      _selectedRoom,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
                   ),
+                  const SizedBox(height: 10),
                   Text(
                     'Tanggal: $day ${_monthName(_month.month)} ${_month.year}',
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
@@ -2400,6 +2427,19 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                         ),
                       ),
                     ),
+                  const SizedBox(height: 14),
+
+                  const Text('Nama Instansi Peminjam:', style: AppTextStyles.label),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: instansiCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Nama dinas, biro, atau instansi...',
+                      hintStyle: TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(),
+                    ),
+                    style: const TextStyle(fontSize: 13),
+                  ),
                   const SizedBox(height: 14),
 
                   Row(
@@ -2463,13 +2503,13 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  const Text('Keperluan:', style: AppTextStyles.label),
+                  const Text('Tujuan Peminjaman:', style: AppTextStyles.label),
                   const SizedBox(height: 6),
                   TextField(
-                    controller: keperluanCtrl,
+                    controller: tujuanCtrl,
                     maxLines: 2,
                     decoration: const InputDecoration(
-                      hintText: 'Rapat koordinasi, seminar, dll...',
+                      hintText: 'Tujuan rapat, seminar, dll...',
                       hintStyle: TextStyle(fontSize: 12),
                       border: OutlineInputBorder(),
                     ),
