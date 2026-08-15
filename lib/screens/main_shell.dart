@@ -83,7 +83,7 @@ class MainShellState extends State<MainShell> {
                     current: _currentIndex,
                     onTap: (i) => setState(() => _currentIndex = i),
                   ),
-                  if (PermissionService.isKatim || PermissionService.isTu)
+                  if (PermissionService.isKatim)
                     _NavItem(
                       icon: Icons.business_outlined,
                       activeIcon: Icons.business,

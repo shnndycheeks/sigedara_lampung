@@ -156,23 +156,23 @@ class PermissionService {
   // ============================================================
 
   /// Boleh melihat peminjaman kendaraan.
-  static bool get canViewPeminjamanKendaraan => isTu || isKatim;
+  static bool get canViewPeminjamanKendaraan => isKatim;
 
   /// Boleh melihat peminjaman gedung.
-  static bool get canViewPeminjamanGedung => isTu || isKatim;
+  static bool get canViewPeminjamanGedung => isKatim;
 
   /// Boleh membuka menu peminjaman.
-  static bool get canAccessPeminjaman => isTu || isKatim;
+  static bool get canAccessPeminjaman => isKatim;
 
   // ============================================================
   // PERSETUJUAN
   // ============================================================
 
   /// Boleh menyetujui peminjaman kendaraan.
-  static bool get canApprovePeminjamanKendaraan => isTu;
+  static bool get canApprovePeminjamanKendaraan => isKatim;
 
   /// Boleh menyetujui peminjaman gedung.
-  static bool get canApprovePeminjamanGedung => isTu;
+  static bool get canApprovePeminjamanGedung => isKatim;
 
   // ============================================================
   // ARSIP SURAT
