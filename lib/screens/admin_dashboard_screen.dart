@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -21,6 +22,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 
+  final SupabaseClient _client = Supabase.instance.client;
+  String _adminNama = 'Admin';
+  String _adminRoleLabel = 'ADMIN';
+
   @override
   void initState() {
     super.initState();
@@ -29,12 +34,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       duration: const Duration(milliseconds: 600),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) {
-        setState(() => _loading = false);
-        _fadeCtrl.forward();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user != null) {
+        final profile = await _client
+            .from('profiles')
+            .select('nama')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (profile != null && mounted) {
+          setState(() {
+            _adminNama = (profile['nama'] ?? 'Admin').toString();
+          });
+        }
       }
-    });
+    } catch (_) {}
+
+    // Tentukan label role
+    if (PermissionService.isTu) {
+      _adminRoleLabel = 'ADMIN TU';
+    } else if (PermissionService.isKaro) {
+      _adminRoleLabel = 'KARO';
+    } else if (PermissionService.isKabag) {
+      _adminRoleLabel = 'KA BAG';
+    } else if (PermissionService.isKatim) {
+      _adminRoleLabel = 'KA TIM';
+    } else {
+      _adminRoleLabel = 'ADMIN';
+    }
+
+    if (mounted) {
+      setState(() => _loading = false);
+      _fadeCtrl.forward();
+    }
   }
 
   @override
@@ -315,9 +352,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                           const SizedBox(height: 2),
                                           Row(
                                             children: [
-                                              const Text(
-                                                'Admin',
-                                                style: TextStyle(
+                                              Text(
+                                                _adminNama,
+                                                style: const TextStyle(
                                                   fontFamily: 'Poppins',
                                                   fontSize: 18,
                                                   fontWeight: FontWeight.w700,
@@ -338,9 +375,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                                     width: 0.8,
                                                   ),
                                                 ),
-                                                child: const Text(
-                                                  'ADMIN',
-                                                  style: TextStyle(
+                                                child: Text(
+                                                  _adminRoleLabel,
+                                                  style: const TextStyle(
                                                     fontFamily: 'Inter',
                                                     fontSize: 8,
                                                     fontWeight: FontWeight.w700,
