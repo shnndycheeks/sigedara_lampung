@@ -9,6 +9,7 @@ import 'peminjaman_screen.dart';
 import 'kendaraan_screen.dart';
 import 'notifikasi_screen.dart';
 import 'aset_screen.dart';
+import '../services/permission_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -590,7 +591,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _StatusAmanCard(
           menungguPersetujuan: _menungguPersetujuan,
           teksMenunggu: _teksMenunggu,
-          onTap: () => NavigationService.goToTabUser?.call(1),
+          onTap: () {
+            if (PermissionService.isKaro || PermissionService.isKabag) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
+              );
+            } else {
+              NavigationService.goToTabUser?.call(1);
+            }
+          },
         ),
         const SizedBox(height: 22),
         const Text(
@@ -1133,20 +1143,34 @@ class _QuickActionsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showCalendar = PermissionService.isKaro || PermissionService.isKabag;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _QuickIconButton(
-          icon: Icons.business_rounded,
-          label: 'Pengajuan',
-          color: const Color(0xFF2563EB),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PeminjamanScreen()),
-            );
-          },
-        ),
+        showCalendar
+            ? _QuickIconButton(
+                icon: Icons.calendar_month_rounded,
+                label: 'Jadwal Gedung',
+                color: const Color(0xFFF59E0B),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
+                  );
+                },
+              )
+            : _QuickIconButton(
+                icon: Icons.business_rounded,
+                label: 'Pengajuan',
+                color: const Color(0xFF2563EB),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PeminjamanScreen()),
+                  );
+                },
+              ),
         _QuickIconButton(
           icon: Icons.directions_car_rounded,
           label: 'Kendaraan',
