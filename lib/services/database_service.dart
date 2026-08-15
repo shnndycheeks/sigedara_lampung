@@ -44,6 +44,27 @@ class DatabaseService {
     return List<Map<String, dynamic>>.from(data);
   }
 
+  static Future<String> getOrCreateRuangan(String namaGedung) async {
+    final data = await _client
+        .from('ruangan')
+        .select('id')
+        .eq('nama', namaGedung)
+        .maybeSingle();
+    
+    if (data != null && data['id'] != null) {
+      return data['id'].toString();
+    }
+    
+    final insertRes = await _client.from('ruangan').insert({
+      'nama': namaGedung,
+      'lokasi': 'Gedung Utama',
+      'kapasitas': 50,
+      'status': 'tersedia',
+    }).select('id').single();
+    
+    return insertRes['id'].toString();
+  }
+
   // ============================================================
   // PEGAWAI
   // ============================================================

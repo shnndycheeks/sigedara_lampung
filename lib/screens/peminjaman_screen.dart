@@ -2234,7 +2234,6 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
     
-    // Cari profil Ricko Pahlevi
     final rickoProfile = _dbProfiles.firstWhere(
       (p) {
         final nipStr = (p['nip'] ?? '').toString().replaceAll(' ', '');
@@ -2246,6 +2245,70 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
     final selectedPegawaiId = rickoProfile.isNotEmpty 
         ? rickoProfile['id']?.toString() 
         : 'acd9ea67-f7f6-4170-b92d-71e71deef408';
+
+    String mapFriendlyNameToDbName(String name) {
+      switch (name) {
+        case 'Gedung Balai Keratun - Ruang Abung':
+          return 'Balai Keratun — Ruang abung';
+        case 'Gedung Balai Keratun - Ruang Sungkai':
+          return 'Balai Keratun — Ruang Sungkai';
+        case 'Gedung Balai Keratun - Balai Keratun Lt. 3':
+          return 'Balai Keratun — balai_keratun_LT3';
+        case 'Gedung Utama - R. Sakai Sambayan':
+          return 'Ruang Sakai Sambaian';
+        case 'Gedung Utama - R. Rapat Utama':
+          return 'Ruang Rapat Utama';
+        case 'Gedung Pusiban - R. Rapat Utama':
+          return 'Ruang rapat Pusiban';
+        case 'Lapangan Tennis Indoor':
+          return 'Lapangan Tenis Indoor';
+        default:
+          return name;
+      }
+    }
+
+    String mapDbNameToFriendlyName(String dbName) {
+      switch (dbName) {
+        case 'Balai Keratun — Ruang abung':
+          return 'Gedung Balai Keratun - Ruang Abung';
+        case 'Balai Keratun — Ruang Sungkai':
+          return 'Gedung Balai Keratun - Ruang Sungkai';
+        case 'Balai Keratun — balai_keratun_LT3':
+          return 'Gedung Balai Keratun - Balai Keratun Lt. 3';
+        case 'Ruang Sakai Sambaian':
+          return 'Gedung Utama - R. Sakai Sambayan';
+        case 'Ruang Rapat Utama':
+          return 'Gedung Utama - R. Rapat Utama';
+        case 'Ruang rapat Pusiban':
+          return 'Gedung Pusiban - R. Rapat Utama';
+        case 'Lapangan Tenis Indoor':
+          return 'Lapangan Tennis Indoor';
+        default:
+          return dbName;
+      }
+    }
+
+    final List<String> daftarGedung = [
+      'Gedung Balai Keratun - Ruang Abung',
+      'Gedung Balai Keratun - Ruang Sungkai',
+      'Gedung Balai Keratun - Balai Keratun Lt. 3',
+      'Gedung Utama - R. Sakai Sambayan',
+      'Gedung Utama - R. Rapat Utama',
+      'Gedung Pusiban - R. Rapat Utama',
+      'Gedung Pusiban - R. Kecil',
+      'R. Rapat Staff Ahli',
+      'R. Rapat Biro Umum',
+      'Lapangan Korpri',
+      'Lapangan Tennis Indoor',
+      'Green Sport Arena',
+      'Mahan Agung'
+    ];
+
+    final initialFriendly = mapDbNameToFriendlyName(_selectedRoom);
+    if (!daftarGedung.contains(initialFriendly)) {
+      daftarGedung.add(initialFriendly);
+    }
+    String selectedGedungName = initialFriendly;
     
     bool submitting = false;
     final nav = Navigator.of(context);
@@ -2326,13 +2389,13 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
 
             setModalState(() => submitting = true);
             try {
-              final roomId = _roomNameToId[_selectedRoom];
-              if (roomId == null) throw Exception('Ruangan tidak valid');
+              final dbRoomName = mapFriendlyNameToDbName(selectedGedungName);
+              final roomId = await DatabaseService.getOrCreateRuangan(dbRoomName);
 
               final keperluanLengkap = [
                 tujuan,
                 'Instansi: $instansi',
-                'Ruangan: $_selectedRoom',
+                'Ruangan: $dbRoomName',
               ].join(' | ');
 
               await DatabaseService.tambahJadwalPeminjamanGedung(
@@ -2383,16 +2446,31 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                   const Text('Nama Gedung yang Dipinjam:', style: AppTextStyles.label),
                   const SizedBox(height: 6),
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.divider),
                     ),
-                    child: Text(
-                      _selectedRoom,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedGedungName,
+                        isExpanded: true,
+                        items: daftarGedung.map((g) {
+                          return DropdownMenuItem<String>(
+                            value: g,
+                            child: Text(
+                              g,
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedGedungName = val);
+                          }
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -2412,11 +2490,9 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.divider),
                     ),
-                    child: Text(
-                      rickoProfile.isNotEmpty 
-                          ? '${rickoProfile['nama']} (NIP. ${rickoProfile['nip']})'
-                          : 'Ricko Pahlevi, S.IP (NIP. 19871109 2011011010)',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    child: const Text(
+                      'Ricko Pahlevi, S.IP (NIP. 19871109 2011011010)',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                   ),
                   const SizedBox(height: 14),
