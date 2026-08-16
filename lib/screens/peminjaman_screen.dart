@@ -2019,7 +2019,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
       final status = (p['status'] ?? '').toString().toLowerCase();
 
       if (tipe == 'ruangan' && pItemId == roomId && status != 'ditolak' && status != 'ditarik') {
-        final tglMulai = DateTime.tryParse(p['tanggal_mulai'] ?? '');
+        final tglMulai = DateTime.tryParse(p['tanggal_mulai'] ?? '')?.toLocal();
         if (tglMulai != null && tglMulai.year == _month.year && tglMulai.month == _month.month) {
           final day = tglMulai.day;
           _dailyBookings.putIfAbsent(day, () => []).add(p);

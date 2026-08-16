@@ -181,8 +181,8 @@ class DatabaseService {
       params: {
         'p_tipe_item': tipeItem,
         'p_item_id': itemId,
-        'p_tanggal_mulai': tanggalMulai.toIso8601String(),
-        'p_tanggal_selesai': tanggalSelesai.toIso8601String(),
+        'p_tanggal_mulai': tanggalMulai.toUtc().toIso8601String(),
+        'p_tanggal_selesai': tanggalSelesai.toUtc().toIso8601String(),
       },
     );
 
@@ -223,8 +223,8 @@ class DatabaseService {
         tanggalSelesai.day,
       ).add(const Duration(days: 1));
     } else {
-      mulaiBaru = tanggalMulai;
-      selesaiBaru = tanggalSelesai;
+      mulaiBaru = tanggalMulai.toUtc();
+      selesaiBaru = tanggalSelesai.toUtc();
     }
 
     for (final jadwal in dataBentrok) {
@@ -256,8 +256,8 @@ class DatabaseService {
           selesaiLamaRaw.day,
         ).add(const Duration(days: 1));
       } else {
-        mulaiLama = mulaiLamaRaw;
-        selesaiLama = selesaiLamaRaw;
+        mulaiLama = mulaiLamaRaw.toUtc();
+        selesaiLama = selesaiLamaRaw.toUtc();
       }
 
       final benarBentrok =
@@ -267,16 +267,16 @@ class DatabaseService {
         if (isKendaraan) {
           throw Exception(
             '$namaItem sudah dibooking pada '
-            '${_formatTanggal(mulaiLamaRaw)} '
-            'sampai ${_formatTanggal(selesaiLamaRaw)}',
+            '${_formatTanggal(mulaiLamaRaw.toLocal())} '
+            'sampai ${_formatTanggal(selesaiLamaRaw.toLocal())}',
           );
         }
 
         throw Exception(
           '$namaItem sudah dibooking pada '
-          '${_formatTanggal(mulaiLamaRaw)} '
-          'jam ${_formatJam(mulaiLamaRaw)} - '
-          '${_formatJam(selesaiLamaRaw)}',
+          '${_formatTanggal(mulaiLamaRaw.toLocal())} '
+          'jam ${_formatJam(mulaiLamaRaw.toLocal())} - '
+          '${_formatJam(selesaiLamaRaw.toLocal())}',
         );
       }
     }
@@ -392,8 +392,8 @@ class DatabaseService {
       'user_id': user.id,
       'tipe_item': 'ruangan',
       'item_id': finalRuanganId,
-      'tanggal_mulai': tanggalMulai.toIso8601String(),
-      'tanggal_selesai': tanggalSelesai.toIso8601String(),
+      'tanggal_mulai': tanggalMulai.toUtc().toIso8601String(),
+      'tanggal_selesai': tanggalSelesai.toUtc().toIso8601String(),
       'keperluan': keperluan,
       'status': 'pending',
       'catatan_admin': null,
@@ -423,13 +423,13 @@ class DatabaseService {
       'user_id': userId,
       'tipe_item': 'ruangan',
       'item_id': finalRuanganId,
-      'tanggal_mulai': tanggalMulai.toIso8601String(),
-      'tanggal_selesai': tanggalSelesai.toIso8601String(),
+      'tanggal_mulai': tanggalMulai.toUtc().toIso8601String(),
+      'tanggal_selesai': tanggalSelesai.toUtc().toIso8601String(),
       'keperluan': keperluan,
       'status': status,
       'catatan_admin': 'Diisi oleh Katim',
       'approved_by': _client.auth.currentUser?.id,
-      'approved_at': DateTime.now().toIso8601String(),
+      'approved_at': DateTime.now().toUtc().toIso8601String(),
     });
   }
 
@@ -463,8 +463,8 @@ class DatabaseService {
       'user_id': user.id,
       'tipe_item': 'kendaraan',
       'item_id': kendaraanId,
-      'tanggal_mulai': tanggalMulai.toIso8601String(),
-      'tanggal_selesai': tanggalSelesai.toIso8601String(),
+      'tanggal_mulai': tanggalMulai.toUtc().toIso8601String(),
+      'tanggal_selesai': tanggalSelesai.toUtc().toIso8601String(),
       'keperluan': keperluan,
       'status': 'pending',
       'catatan_admin': null,
@@ -582,8 +582,8 @@ class DatabaseService {
     await _client
         .from('peminjaman')
         .update({
-          'tanggal_mulai': tanggalMulai.toIso8601String(),
-          'tanggal_selesai': tanggalSelesai.toIso8601String(),
+          'tanggal_mulai': tanggalMulai.toUtc().toIso8601String(),
+          'tanggal_selesai': tanggalSelesai.toUtc().toIso8601String(),
           'keperluan': keperluan,
         })
         .eq('id', peminjamanId);
