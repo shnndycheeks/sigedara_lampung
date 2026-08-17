@@ -18,7 +18,7 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
   bool _notifPersetujuan = true;
   bool _notifAset = true;
   bool _notifSistem = true;
-  bool _biometrik = false;
+
 
   @override
   Widget build(BuildContext context) {
@@ -252,13 +252,6 @@ class _AdminProfileScreenState extends State<AdminProfileScreen> {
                     ),
                     child: Column(
                       children: [
-                        _SwitchRow(
-                          label: 'Autentikasi Biometrik',
-                          subtitle: 'Gunakan sidik jari untuk login',
-                          value: _biometrik,
-                          onChanged: (v) => setState(() => _biometrik = v),
-                        ),
-                        const Divider(height: 1, color: AppColors.divider),
                         _MenuRow(
                           icon: Icons.lock_reset,
                           label: 'Ganti Password',

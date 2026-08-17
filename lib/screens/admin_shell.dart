@@ -189,7 +189,11 @@ class AdminShellState extends State<AdminShell> {
               return const SizedBox.shrink();
             }
 
-            _screenCache.putIfAbsent(i, () => _buildScreen(i));
+            if (i == 0 || i == 1 || i == 6) {
+              _screenCache[i] = _buildScreen(i);
+            } else {
+              _screenCache.putIfAbsent(i, () => _buildScreen(i));
+            }
 
             return Offstage(
               offstage: i != _currentIndex,

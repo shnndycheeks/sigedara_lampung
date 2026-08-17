@@ -21,7 +21,7 @@ class ActivityLogService {
         'surat_id': suratId,
         'action': action,
         'details': details,
-        'created_at': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       });
       debugPrint('[LOG AUDIT] Activity logged: $action');
     } catch (e) {

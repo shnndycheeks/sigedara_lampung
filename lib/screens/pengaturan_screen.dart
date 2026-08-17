@@ -23,7 +23,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
   String _waktuRingkasan = 'Setiap hari, 08:00';
 
   // Privasi & Keamanan
-  bool _biometrik = true;
+
   bool _sembunyikanNIP = false;
   String _autoLogout = '30 menit';
 
@@ -250,21 +250,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
           ),
           _SettingCard(
             children: [
-              _SwitchTile(
-                icon: Icons.fingerprint_outlined,
-                iconColor: const Color(0xFF10B981),
-                title: 'Autentikasi Biometrik',
-                subtitle: 'Gunakan sidik jari atau Face ID untuk masuk',
-                value: _biometrik,
-                onChanged: (v) {
-                  setState(() => _biometrik = v);
-                  _showSnackbar(
-                    context,
-                    'Autentikasi Biometrik ${v ? 'aktif' : 'nonaktif'}',
-                  );
-                },
-              ),
-              const _Divider(),
+
               _SwitchTile(
                 icon: Icons.visibility_off_outlined,
                 iconColor: AppColors.textSecondary,
@@ -529,7 +515,7 @@ class _PengaturanScreenState extends State<PengaturanScreen> {
                 _notifServis = false;
                 _notifEmail = false;
                 _waktuRingkasan = 'Setiap hari, 08:00';
-                _biometrik = true;
+
                 _sembunyikanNIP = false;
                 _autoLogout = '30 menit';
                 _sinkronOtomatis = true;

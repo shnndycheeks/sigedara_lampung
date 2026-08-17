@@ -155,7 +155,7 @@ class _NavItem extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: active
-              ? AppColors.primary.withValues(alpha: 0.10)
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.10)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
@@ -167,7 +167,7 @@ class _NavItem extends StatelessWidget {
               children: [
                 Icon(
                   active ? activeIcon : icon,
-                  color: active ? AppColors.primary : AppColors.textHint,
+                  color: active ? const Color(0xFFF59E0B) : AppColors.textHint,
                   size: 24,
                 ),
                 if (badge > 0)
@@ -202,7 +202,7 @@ class _NavItem extends StatelessWidget {
                 fontFamily: 'Inter',
                 fontSize: 10,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                color: active ? AppColors.primary : AppColors.textHint,
+                color: active ? const Color(0xFFF59E0B) : AppColors.textHint,
               ),
             ),
           ],

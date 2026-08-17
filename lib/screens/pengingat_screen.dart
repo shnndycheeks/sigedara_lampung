@@ -37,12 +37,12 @@ class _PengingatScreenState extends State<PengingatScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: _filterIndex == i
-                        ? AppColors.primary
+                        ? const Color(0xFFF59E0B)
                         : AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _filterIndex == i
-                          ? AppColors.primary
+                          ? const Color(0xFFF59E0B)
                           : AppColors.divider,
                     ),
                   ),
@@ -83,19 +83,20 @@ class _PengingatScreenState extends State<PengingatScreen> {
         title: const Text(
           'Pengingat Pajak & Servis',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
         automaticallyImplyLeading: false,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: AppColors.textPrimary,
             size: 20,
           ),
           onPressed: () {
@@ -110,7 +111,7 @@ class _PengingatScreenState extends State<PengingatScreen> {
       body: SafeArea(child: body),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showTambahPengingatDialog(context),
-        backgroundColor: AppColors.primary,
+        backgroundColor: const Color(0xFFF59E0B),
         icon: const Icon(Icons.add_alarm, color: Colors.white),
         label: const Text(
           'Tambah Pengingat',
@@ -324,12 +325,12 @@ class _PengingatTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: uploaded
                           ? AppColors.success.withValues(alpha: 0.08)
-                          : AppColors.primary.withValues(alpha: 0.08),
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: uploaded
                             ? AppColors.success.withValues(alpha: 0.3)
-                            : AppColors.primary.withValues(alpha: 0.3),
+                            : const Color(0xFFF59E0B).withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -342,7 +343,7 @@ class _PengingatTile extends StatelessWidget {
                           size: 16,
                           color: uploaded
                               ? AppColors.success
-                              : AppColors.primary,
+                              : const Color(0xFFF59E0B),
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -353,7 +354,7 @@ class _PengingatTile extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             color: uploaded
                                 ? AppColors.success
-                                : AppColors.primary,
+                                : const Color(0xFFF59E0B),
                           ),
                         ),
                       ],

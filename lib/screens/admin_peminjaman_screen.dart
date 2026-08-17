@@ -405,9 +405,9 @@ class _AdminPeminjamanScreenState extends State<AdminPeminjamanScreen> {
           Container(
             color: AppColors.surface,
             child: const TabBar(
-              labelColor: AppColors.primary,
+              labelColor: Color(0xFFF59E0B),
               unselectedLabelColor: AppColors.textSecondary,
-              indicatorColor: AppColors.primary,
+              indicatorColor: Color(0xFFF59E0B),
               indicatorSize: TabBarIndicatorSize.tab,
               tabs: [
                 Tab(

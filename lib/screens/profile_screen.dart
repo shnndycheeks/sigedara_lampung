@@ -21,7 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _notifPeminjaman = NotificationService.notifPeminjaman.value;
   bool _notifPajak = NotificationService.notifPajak.value;
   bool _notifServis = NotificationService.notifServis.value;
-  bool _biometrik = true;
+
   bool _darkMode = ThemeService.isDark.value;
 
   bool _loading = true;
@@ -511,18 +511,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: AppTextStyles.h3,
                                 ),
                                 const SizedBox(height: 14),
-                                _SwitchRow(
-                                  icon: Icons.fingerprint,
-                                  label: 'Login Biometrik',
-                                  value: _biometrik,
-                                  color: const Color(0xFF7C3AED),
-                                  onChanged: (v) =>
-                                      setState(() => _biometrik = v),
-                                ),
-                                const Divider(
-                                  height: 16,
-                                  color: AppColors.divider,
-                                ),
                                 _SwitchRow(
                                   icon: Icons.dark_mode_outlined,
                                   label: 'Mode Gelap',

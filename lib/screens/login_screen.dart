@@ -640,55 +640,7 @@ class _LoginScreenState extends State<LoginScreen>
                                         ),
                                       ),
 
-                                      const SizedBox(height: 24),
-
-                                      Row(
-                                        children: const [
-                                          Expanded(child: Divider()),
-                                          Padding(
-                                            padding: EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                            ),
-                                            child: Text('atau'),
-                                          ),
-                                          Expanded(child: Divider()),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 24),
-
-                                      SizedBox(
-                                        width: double.infinity,
-                                        height: 56,
-                                        child: OutlinedButton.icon(
-                                          onPressed: () {
-                                            _showMessage(
-                                              'Fitur biometrik segera hadir',
-                                            );
-                                          },
-                                          icon: Icon(
-                                            Icons.fingerprint,
-                                            color: _primaryDark,
-                                          ),
-                                          label: Text(
-                                            'Masuk dengan Biometrik',
-                                            style: TextStyle(
-                                              color: _primaryDark,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(
-                                              color: _primaryDark,
-                                              width: 2,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(18),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                      const SizedBox(height: 16),
 
                                       if (!widget.isAdmin) ...[
                                         const SizedBox(height: 16),

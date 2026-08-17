@@ -346,6 +346,12 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
           filePath: finalFilePath,
           fileSize: finalFileSize,
           oldFilePathToDelete: hasNewFile ? oldFilePath : null,
+          nomorSurat: nomor,
+          tanggalSurat: _selectedTanggal,
+          dari: dari,
+          kepada: kepada,
+          noAgenda: _noAgendaCtrl.text.trim(),
+          tingkatUrgensi: _selectedUrgensi,
         );
       } else {
         await ArsipSuratService.tambahArsip(
@@ -355,6 +361,12 @@ class _TambahEditSuratScreenState extends State<TambahEditSuratScreen> {
           fileUrl: finalFileUrl,
           filePath: finalFilePath,
           fileSize: finalFileSize ?? 0,
+          nomorSurat: nomor,
+          tanggalSurat: _selectedTanggal,
+          dari: dari,
+          kepada: kepada,
+          noAgenda: _noAgendaCtrl.text.trim(),
+          tingkatUrgensi: _selectedUrgensi,
         );
       }
 

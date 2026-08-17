@@ -34,7 +34,7 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
           'Henny Marlina mengajukan peminjaman Ruang Serbaguna untuk 11 April 2026.',
       'time': '2 jam lalu',
       'icon': Icons.business_center_outlined,
-      'color': AppColors.primary,
+      'color': const Color(0xFFF59E0B),
       'read': false,
     },
     {
@@ -117,8 +117,18 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Notifikasi'),
-        backgroundColor: AppColors.primary,
+        title: const Text(
+          'Notifikasi',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontFamily: 'Poppins',
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
         actions: [
           TextButton(
             onPressed: _adaBelumDibaca ? _bacaSemua : null,
@@ -126,8 +136,8 @@ class _NotifikasiScreenState extends State<NotifikasiScreen> {
               'Baca Semua',
               style: TextStyle(
                 color: _adaBelumDibaca
-                    ? AppColors.gold
-                    : Colors.white.withValues(alpha: 0.45),
+                    ? const Color(0xFFF59E0B)
+                    : AppColors.textHint,
                 fontSize: 12,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w600,
@@ -368,7 +378,7 @@ class _NotifDetailSheet extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: const Color(0xFFF59E0B),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),

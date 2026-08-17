@@ -128,8 +128,22 @@ class ArsipSuratService {
       final pKepada = kepada ?? deskripsi['kepada']?.toString() ?? 'Kepala Biro Umum';
       final pNoAgenda = noAgenda ?? deskripsi['no_agenda']?.toString() ?? '-';
       final pTingkatUrgensi = tingkatUrgensi ?? deskripsi['tingkat_urgensi']?.toString() ?? 'Biasa';
-      final pTglSurat = tanggalSurat ?? DateTime.now();
-      final pTglDiterima = tanggalDiterima ?? DateTime.now();
+      
+      DateTime? pTglSurat = tanggalSurat;
+      if (pTglSurat == null && deskripsi['tanggal_surat'] != null) {
+        try {
+          pTglSurat = DateTime.parse(deskripsi['tanggal_surat'].toString());
+        } catch (_) {}
+      }
+      pTglSurat ??= DateTime.now();
+
+      DateTime? pTglDiterima = tanggalDiterima;
+      if (pTglDiterima == null && deskripsi['tanggal_diterima'] != null) {
+        try {
+          pTglDiterima = DateTime.parse(deskripsi['tanggal_diterima'].toString());
+        } catch (_) {}
+      }
+      pTglDiterima ??= DateTime.now();
 
       await _client.from(_tableName).insert({
         'judul': judul,
@@ -169,6 +183,8 @@ class ArsipSuratService {
     int? fileSize,
     String? oldFilePathToDelete,
     String? nomorSurat,
+    DateTime? tanggalSurat,
+    DateTime? tanggalDiterima,
     String? dari,
     String? kepada,
     String? noAgenda,
@@ -186,6 +202,27 @@ class ArsipSuratService {
       if (kepada != null) updateData['kepada'] = kepada;
       if (noAgenda != null) updateData['no_agenda'] = noAgenda;
       if (tingkatUrgensi != null) updateData['tingkat_urgensi'] = tingkatUrgensi;
+
+      DateTime? pTglSurat = tanggalSurat;
+      if (pTglSurat == null && deskripsi['tanggal_surat'] != null) {
+        try {
+          pTglSurat = DateTime.parse(deskripsi['tanggal_surat'].toString());
+        } catch (_) {}
+      }
+      if (pTglSurat != null) {
+        updateData['tanggal_surat'] = pTglSurat.toIso8601String().split('T').first;
+      }
+
+      DateTime? pTglDiterima = tanggalDiterima;
+      if (pTglDiterima == null && deskripsi['tanggal_diterima'] != null) {
+        try {
+          pTglDiterima = DateTime.parse(deskripsi['tanggal_diterima'].toString());
+        } catch (_) {}
+      }
+      if (pTglDiterima != null) {
+        updateData['tanggal_diterima'] = pTglDiterima.toIso8601String().split('T').first;
+      }
+
       if (fileUrl != null) updateData['file_url'] = fileUrl;
       if (filePath != null) updateData['file_path'] = filePath;
       if (fileSize != null) updateData['file_size'] = fileSize;

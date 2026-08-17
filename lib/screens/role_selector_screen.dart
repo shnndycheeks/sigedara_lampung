@@ -263,7 +263,33 @@ class _RoleSelectorScreenState extends State<RoleSelectorScreen>
                             title: 'Pegawai',
                             subtitle: 'Login staf / pegawai',
                             colorTheme: AppColors.primary,
-                            onTap: () => _goToLogin(false),
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.info_outline_rounded, color: Colors.amberAccent),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Sedang dalam proses pengembangan',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Inter',
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: const Color(0xFF1E293B),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
                             badgeLabel: 'USER',
                           ),
                         ),
@@ -372,10 +398,10 @@ class _RoleCardState extends State<_RoleCard>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: widget.onTap,
       onTapDown: (_) => _pressCtrl.reverse(),
       onTapUp: (_) {
         _pressCtrl.forward();
-        widget.onTap();
       },
       onTapCancel: () => _pressCtrl.forward(),
       child: ScaleTransition(

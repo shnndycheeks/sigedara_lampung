@@ -7,6 +7,11 @@ import 'notifikasi_screen.dart';
 import 'admin_persetujuan_screen.dart';
 import 'peminjaman_screen.dart';
 import '../services/permission_service.dart';
+import '../services/database_service.dart';
+import '../services/activity_log_service.dart';
+import '../services/arsip_surat_service.dart';
+import '../models/arsip_surat_model.dart';
+import 'surat_detail_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -24,6 +29,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   String _adminNama = 'Admin';
   String _adminRoleLabel = 'ADMIN';
 
+  int _statMenunggu = 0;
+  int _statDisetujui = 0;
+  int _statKendaraan = 0;
+  int _statAset = 0;
+
   @override
   void initState() {
     super.initState();
@@ -38,6 +48,201 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   Future<void> _loadProfileData() async {
     try {
       await PermissionService.loadPermissions();
+
+      // Fetch real stats
+      final stats = await DatabaseService.getDashboardStats();
+      _statKendaraan = stats['total_kendaraan'] ?? 0;
+      _statAset = stats['total_aset'] ?? 0;
+
+      // Fetch all letters
+      int pendingLettersCount = 0;
+      final List<Map<String, dynamic>> mappedLetters = [];
+      try {
+        final allArsip = await ArsipSuratService.getSemuaArsip();
+        final pendingLetters = allArsip.where((a) {
+          final status = a.statusGlobal.toLowerCase();
+          if (status == 'selesai') return false;
+
+          if (PermissionService.isTu) {
+            return true;
+          } else if (PermissionService.isKaro) {
+            return status == 'menunggu_karo' || a.listDisposisi.isEmpty;
+          } else if (PermissionService.isKabag) {
+            if (status != 'menunggu_kabag' && status != 'dalam_proses') return false;
+            final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+            final targets = a.listKabagTarget.map((t) => t.toLowerCase()).toList();
+            if (targets.isEmpty) return true;
+            return targets.any((t) => t.contains(userJabatan) || userJabatan.contains(t) || _isKabagJabatanMatch(t, userJabatan));
+          } else if (PermissionService.isKatim) {
+            if (status != 'menunggu_katim' && status != 'dalam_proses') return false;
+            final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+            final targets = a.listKatimTarget.map((t) => t.toLowerCase()).toList();
+            if (targets.isEmpty) return true;
+            return targets.any((t) => t.contains(userJabatan) || userJabatan.contains(t) || _isKatimJabatanMatch(t, userJabatan));
+          }
+          return false;
+        }).toList();
+
+        pendingLettersCount = pendingLetters.length;
+
+        mappedLetters.addAll(pendingLetters.map((a) {
+          String statusLabel = 'Menunggu Disposisi';
+          final status = a.statusGlobal.toLowerCase();
+          if (status == 'menunggu_karo') {
+            statusLabel = 'Menunggu Disposisi Karo';
+          } else if (status == 'menunggu_kabag') {
+            statusLabel = 'Menunggu Disposisi Kabag';
+          } else if (status == 'menunggu_katim') {
+            statusLabel = 'Menunggu Tindak Lanjut Katim';
+          } else if (status == 'dalam_proses') {
+            statusLabel = 'Sedang Diproses';
+          }
+
+          String tgl = 'Hari ini';
+          try {
+            final dt = a.createdAt.toLocal();
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            tgl = '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+          } catch (_) {}
+
+          return {
+            'id': a.id,
+            'nama': a.judul.isNotEmpty ? a.judul : 'Surat Tanpa Perihal',
+            'jenis': 'No: ${a.nomorSurat} | $statusLabel',
+            'tgl': tgl,
+            'type': 'surat',
+            'suratObj': a,
+          };
+        }));
+      } catch (_) {}
+
+      _statMenunggu = (stats['menunggu_persetujuan'] ?? 0) + pendingLettersCount;
+
+      // Calculate approved bookings this month
+      try {
+        final allPeminjaman = await DatabaseService.getSemuaPeminjaman();
+        final now = DateTime.now();
+        _statDisetujui = allPeminjaman.where((p) {
+          final isApproved = p['status']?.toString().toLowerCase() == 'disetujui';
+          if (!isApproved) return false;
+          if (p['tanggal_mulai'] == null) return false;
+          try {
+            final dt = DateTime.parse(p['tanggal_mulai'].toString());
+            return dt.month == now.month && dt.year == now.year;
+          } catch (_) {
+            return false;
+          }
+        }).length;
+
+        // Map real pending items
+        final pendingBookings = allPeminjaman.where((p) {
+          return p['status']?.toString().toLowerCase() == 'pending';
+        }).toList();
+
+        final mappedPending = pendingBookings.map((p) {
+          final isKendaraan = p['kendaraan_id'] != null;
+          final namaPeminjam = p['peminjam']?.toString() ?? 'Pegawai';
+          final jenis = isKendaraan
+              ? (p['kendaraan']?['nama_kendaraan']?.toString() ?? 'Kendaraan Dinas')
+              : (p['ruangan']?['nama_ruangan']?.toString() ?? 'Gedung / Ruangan');
+
+          String tgl = 'Hari ini';
+          if (p['tanggal_mulai'] != null) {
+            try {
+              final dt = DateTime.parse(p['tanggal_mulai'].toString()).toLocal();
+              const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+              tgl = '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+            } catch (_) {}
+          }
+
+          return {
+            'nama': namaPeminjam,
+            'jenis': jenis,
+            'tgl': tgl,
+            'type': isKendaraan ? 'kendaraan' : 'gedung',
+          };
+        }).toList();
+
+        _pendingItems.clear();
+        _pendingItems.addAll(mappedPending);
+        _pendingItems.addAll(mappedLetters);
+      } catch (_) {}
+
+      // Fetch real activity logs
+      try {
+        final logs = await ActivityLogService.getLogs(limit: 5);
+        final mappedLogs = logs.map((log) {
+          IconData icon;
+          Color color;
+          String actionLabel;
+
+          String detailLabel = '';
+          switch (log.action.toUpperCase()) {
+            case 'LOGIN':
+              icon = Icons.login_rounded;
+              color = AppColors.success;
+              actionLabel = 'Pengguna Masuk';
+              detailLabel = 'Berhasil masuk ke aplikasi';
+              break;
+            case 'UPLOAD_SURAT':
+              icon = Icons.upload_file_rounded;
+              color = AppColors.info;
+              actionLabel = 'Unggah Surat';
+              final judul = log.details?['judul'] ?? 'Surat';
+              detailLabel = '$judul';
+              break;
+            case 'DISPOSISI_KIRIM':
+              icon = Icons.send_rounded;
+              color = const Color(0xFFF59E0B);
+              actionLabel = 'Disposisi Dikirim';
+              final kepada = log.details?['kepada'] ?? '';
+              detailLabel = kepada.isNotEmpty ? 'Diteruskan ke: $kepada' : 'Berhasil diteruskan';
+              break;
+            case 'DELETE_SURAT':
+              icon = Icons.delete_outline_rounded;
+              color = AppColors.error;
+              actionLabel = 'Surat Dihapus';
+              final judul = log.details?['judul'] ?? 'Surat';
+              detailLabel = '$judul telah dihapus';
+              break;
+            case 'PREVIEW_SURAT':
+              icon = Icons.history_rounded;
+              color = AppColors.textSecondary;
+              actionLabel = 'Melihat Surat';
+              final judul = log.details?['judul'] ?? 'Surat';
+              detailLabel = '$judul';
+              break;
+            default:
+              icon = Icons.history_rounded;
+              color = AppColors.textSecondary;
+              actionLabel = 'Aktivitas';
+              detailLabel = log.action;
+          }
+
+          String timeAgo = 'Baru saja';
+          try {
+            final diff = DateTime.now().toUtc().difference(log.createdAt);
+            if (diff.inMinutes < 60) {
+              timeAgo = diff.inMinutes <= 0 ? 'Baru saja' : '${diff.inMinutes} menit lalu';
+            } else if (diff.inHours < 24) {
+              timeAgo = '${diff.inHours} jam lalu';
+            } else {
+              timeAgo = '${diff.inDays} hari lalu';
+            }
+          } catch (_) {}
+
+          return {
+            'action': actionLabel,
+            'detail': detailLabel,
+            'time': timeAgo,
+            'icon': icon,
+            'color': color,
+          };
+        }).toList();
+
+        _activityLog.clear();
+        _activityLog.addAll(mappedLogs);
+      } catch (_) {}
     } catch (_) {}
 
     // Tentukan label role & Nama sapaan
@@ -62,6 +267,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       setState(() => _loading = false);
       _fadeCtrl.forward();
     }
+  }
+
+  bool _isKabagJabatanMatch(String targetLabel, String userJabatanId) {
+    final t = targetLabel.toLowerCase();
+    final j = userJabatanId.toLowerCase();
+    if (t.contains('tata usaha') && j.contains('tu')) return true;
+    if (t.contains('rumah tangga') && j.contains('rt')) return true;
+    if (t.contains('perlengkapan') && j.contains('perlengkapan')) return true;
+    return false;
+  }
+
+  bool _isKatimJabatanMatch(String targetLabel, String userJabatanId) {
+    final t = targetLabel.toLowerCase();
+    final j = userJabatanId.toLowerCase();
+    if (t.contains('gedung') && j.contains('gedung')) return true;
+    if (t.contains('pimpinan') && j.contains('pimpinan')) return true;
+    if (t.contains('kendaraan') && j.contains('kendaraan')) return true;
+    return false;
   }
 
   @override
@@ -580,7 +803,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               _StatCard(
                                 icon: Icons.pending_actions_rounded,
                                 label: 'Menunggu Persetujuan',
-                                value: '5',
+                                value: '$_statMenunggu',
                                 color: AppColors.warning,
                                 trend: '+2 hari ini',
                                 onTap: () =>
@@ -589,21 +812,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               _StatCard(
                                 icon: Icons.check_circle_rounded,
                                 label: 'Disetujui Bulan Ini',
-                                value: '18',
+                                value: '$_statDisetujui',
                                 color: AppColors.success,
                                 trend: '+3 minggu ini',
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const AdminPersetujuanScreen(),
-                                  ),
-                                ),
+                                onTap: () async {
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const AdminPersetujuanScreen(),
+                                    ),
+                                  );
+                                  _loadProfileData();
+                                },
                               ),
                               _StatCard(
                                 icon: Icons.directions_car_rounded,
                                 label: 'Total Kendaraan',
-                                value: '12',
+                                value: '$_statKendaraan',
                                 color: AppColors.info,
                                 trend: '2 tersedia',
                                 onTap: () =>
@@ -612,7 +838,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               _StatCard(
                                 icon: Icons.inventory_2_rounded,
                                 label: 'Aset Aktif',
-                                value: '47',
+                                value: '$_statAset',
                                 color: const Color(0xFF8B5CF6),
                                 trend: '3 baru',
                                 onTap: () =>
@@ -631,7 +857,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                 icon: Icons.hourglass_top_rounded,
                               ),
                               _BadgeChip(
-                                label: '5 pending',
+                                label: '$_statMenunggu pending',
                                 color: AppColors.warning,
                               ),
                             ],
@@ -640,7 +866,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           ..._pendingItems.map(
                             (item) => Padding(
                               padding: const EdgeInsets.only(bottom: 10),
-                              child: _PendingTile(data: item),
+                              child: _PendingTile(
+                                data: item,
+                                onRefresh: _loadProfileData,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -661,13 +890,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                                   color: const Color(0xFFD97706),
                                   filled: true,
                                   icon: Icons.check_circle_outline_rounded,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const AdminPersetujuanScreen(),
-                                    ),
-                                  ),
+                                  onTap: () async {
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const AdminPersetujuanScreen(),
+                                      ),
+                                    );
+                                    _loadProfileData();
+                                  },
                                 ),
                               ),
                             ],
@@ -709,57 +941,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     );
   }
 
-  final List<Map<String, dynamic>> _pendingItems = [
-    {
-      'nama': 'Drs. Budi Santoso',
-      'jenis': 'Gedung Serba Guna',
-      'tgl': '10 Apr 2026',
-      'type': 'gedung',
-    },
-    {
-      'nama': 'Hj. Ratna Wulandari',
-      'jenis': 'Toyota Innova — B 1234 XY',
-      'tgl': '11 Apr 2026',
-      'type': 'kendaraan',
-    },
-    {
-      'nama': 'M. Rizal, S.Kom',
-      'jenis': 'Ruang Rapat Lt. 2',
-      'tgl': '12 Apr 2026',
-      'type': 'gedung',
-    },
-  ];
+  final List<Map<String, dynamic>> _pendingItems = [];
 
-  final List<Map<String, dynamic>> _activityLog = [
-    {
-      'action': 'Peminjaman Disetujui',
-      'detail': 'Balai Keratun Lt. 3 — Siti Rahayu',
-      'time': '2 jam lalu',
-      'icon': Icons.check_circle_rounded,
-      'color': AppColors.success,
-    },
-    {
-      'action': 'Kendaraan Ditambahkan',
-      'detail': 'Mitsubishi Pajero — BE 5678 ZZ',
-      'time': '5 jam lalu',
-      'icon': Icons.directions_car_rounded,
-      'color': AppColors.info,
-    },
-    {
-      'action': 'Peminjaman Ditolak',
-      'detail': 'Ruang Pertemuan — Agus Salim',
-      'time': 'Kemarin',
-      'icon': Icons.cancel_rounded,
-      'color': AppColors.error,
-    },
-    {
-      'action': 'Aset Diperbarui',
-      'detail': 'Laptop Dell XPS — SN-20241',
-      'time': 'Kemarin',
-      'icon': Icons.edit_rounded,
-      'color': AppColors.warning,
-    },
-  ];
+  final List<Map<String, dynamic>> _activityLog = [];
 }
 
 // ── Section Label ─────────────────────────────────────────────────────────────
@@ -1061,13 +1245,29 @@ class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixi
 // ── Pending Tile ──────────────────────────────────────────────────────────────
 class _PendingTile extends StatelessWidget {
   final Map<String, dynamic> data;
-  const _PendingTile({required this.data});
+  final VoidCallback? onRefresh;
+  const _PendingTile({required this.data, this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
     final isGedung = data['type'] == 'gedung';
+    final isSurat = data['type'] == 'surat';
     return GestureDetector(
-      onTap: () => NavigationService.goToTabAdmin?.call(1),
+      onTap: () async {
+        if (isSurat && data['suratObj'] != null) {
+          final refresh = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SuratDetailScreen(surat: data['suratObj'] as ArsipSurat),
+            ),
+          );
+          if (refresh == true) {
+            onRefresh?.call();
+          }
+        } else {
+          NavigationService.goToTabAdmin?.call(1);
+        }
+      },
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -1090,14 +1290,18 @@ class _PendingTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7), // Amber 100
+                  color: isSurat
+                      ? const Color(0xFFDBEAFE) // Blue 100
+                      : const Color(0xFFFEF3C7), // Amber 100
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  isGedung
-                      ? Icons.apartment_rounded
-                      : Icons.directions_car_rounded,
-                  color: const Color(0xFFF59E0B), // Amber 500
+                  isSurat
+                      ? Icons.mail_outline_rounded
+                      : (isGedung ? Icons.apartment_rounded : Icons.directions_car_rounded),
+                  color: isSurat
+                      ? AppColors.primary
+                      : const Color(0xFFF59E0B), // Amber 500
                   size: 22,
                 ),
               ),

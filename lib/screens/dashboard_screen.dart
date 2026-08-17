@@ -640,22 +640,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
           actionLabel: 'Lihat Semua',
           onAction: () => NavigationService.goToTabUser?.call(4),
         ),
-        const SizedBox(height: 12),
-        ..._recentActivities.map(
-          (a) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _ActivityTile(data: a),
+        if (_recentActivities.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: Text(
+                'Tidak ada aktivitas terbaru.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          )
+        else
+          ..._recentActivities.map(
+            (a) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _ActivityTile(data: a),
+            ),
           ),
-        ),
         const SizedBox(height: 12),
         const SectionHeader(title: 'Pengingat Jadwal'),
         const SizedBox(height: 12),
-        ..._reminders.map(
-          (r) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _ReminderTile(data: r),
+        if (_reminders.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: Text(
+                'Tidak ada pengingat jadwal.',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          )
+        else
+          ..._reminders.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _ReminderTile(data: r),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -664,46 +695,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     showSearch(context: context, delegate: _GlobalSearch());
   }
 
-  final List<Map<String, dynamic>> _recentActivities = [
-    {
-      'icon': Icons.business,
-      'title': 'Peminjaman Ruang Abung',
-      'sub': 'Menunggu persetujuan admin',
-      'status': 'Menunggu',
-      'color': AppColors.warning,
-    },
-    {
-      'icon': Icons.directions_car,
-      'title': 'Kendaraan dinas',
-      'sub': 'Cek ketersediaan unit kendaraan',
-      'status': 'Aktif',
-      'color': AppColors.success,
-    },
-    {
-      'icon': Icons.build,
-      'title': 'Servis aset berkala',
-      'sub': 'Jadwal pemeliharaan rutin',
-      'status': 'Info',
-      'color': AppColors.info,
-    },
-  ];
+  final List<Map<String, dynamic>> _recentActivities = [];
 
-  final List<Map<String, dynamic>> _reminders = [
-    {
-      'icon': Icons.receipt_long,
-      'title': 'Pajak Kendaraan',
-      'date': 'Pantau jatuh tempo kendaraan dinas',
-      'days': 8,
-      'color': AppColors.warning,
-    },
-    {
-      'icon': Icons.build_circle,
-      'title': 'Servis Rutin',
-      'date': 'Cek jadwal pemeliharaan aset',
-      'days': 13,
-      'color': AppColors.info,
-    },
-  ];
+  final List<Map<String, dynamic>> _reminders = [];
 }
 
 class _StatusAmanCard extends StatelessWidget {

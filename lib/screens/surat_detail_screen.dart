@@ -19,6 +19,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'tambah_edit_surat_screen.dart';
 import 'full_screen_image_screen.dart';
+import 'peminjaman_screen.dart';
 import '../widgets/lembar_disposisi_widget.dart';
 
 class SuratDetailScreen extends StatefulWidget {
@@ -1031,27 +1032,39 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                 .replaceAll(' ', '')
                 .trim();
 
+            final cleanJabId = p.jabatanId
+                .toLowerCase()
+                .replaceAll('_', '')
+                .replaceAll('.', '')
+                .replaceAll(' ', '')
+                .trim();
+
             if (jName == search) return true;
             if (jName.contains(search) || search.contains(jName)) return true;
             if (rName.contains(search) || search.contains(rName)) return true;
 
-            // Role mapping checks
-            if (search.contains('kabagrumahtangga') &&
-                cleanRole.contains('kabagrt')) {
+            // Role & Jabatan mapping checks (fallback for empty master tables)
+            if (search.contains('kabagrumahtangga') && (cleanRole.contains('kabagrt') || cleanJabId.contains('kabagrt'))) {
               return true;
             }
-            if (search.contains('kabagtatausaha') &&
-                cleanRole.contains('kabagtu')) {
+            if (search.contains('kabagtatausaha') && (cleanRole.contains('kabagtu') || cleanJabId.contains('kabagtu'))) {
               return true;
             }
-            if (search.contains('kabagkeuangandanaset') &&
-                cleanRole.contains('kabagaset')) {
+            if ((search.contains('kabagkeuangandanaset') || search.contains('kabagadministrasidanaset')) && (cleanRole.contains('kabagaset') || cleanJabId.contains('kabagaset'))) {
               return true;
             }
-            if (search.contains('kabagadministrasidanaset') &&
-                cleanRole.contains('kabagaset')) {
+
+            // Katim checks
+            if (cleanJabId.contains('katimgd') && (search.contains('gedung1') || search.contains('gd1'))) {
               return true;
             }
+            if (cleanJabId.contains('katimkd') && search.contains('kendaraan')) {
+              return true;
+            }
+            if (cleanJabId.contains('katimud') && search.contains('urusandalam')) {
+              return true;
+            }
+
             return false;
           });
 
@@ -1159,7 +1172,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
     final status = _arsip.statusGlobal.toLowerCase();
     if (status == 'menunggu_karo' || _arsip.listDisposisi.isEmpty) {
       return PermissionService.isKaro;
-    } else if (status == 'menunggu_kabag') {
+    } else if (status == 'menunggu_kabag' || status == 'dalam_proses') {
       if (!PermissionService.isKabag) return false;
       final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
       final targets = _arsip.listKabagTarget.map((t) => t.toLowerCase()).toList();
@@ -1171,7 +1184,7 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
 
   bool get _canUserComplete {
     final status = _arsip.statusGlobal.toLowerCase();
-    if (status != 'menunggu_katim') return false;
+    if (status != 'menunggu_katim' && status != 'dalam_proses') return false;
     if (!PermissionService.isKatim) return false;
     final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
     final targets = _arsip.listKatimTarget.map((t) => t.toLowerCase()).toList();
@@ -1224,10 +1237,10 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-    } else if (status == 'menunggu_kabag') {
+    } else if (status == 'menunggu_kabag' || (status == 'dalam_proses' && PermissionService.isKabag)) {
       final canAct = _canUserDisposisi;
       return ElevatedButton.icon(
-        onPressed: (canAct && !_loading && !_isSubmitting) ? _showModalIsiDisposisi : null,
+        onPressed: (canAct && !_loading && !_isSubmitting) ? () => _showModalIsiDisposisi(isKaro: false) : null,
         icon: const Icon(Icons.forward_to_inbox_rounded, color: Colors.white),
         label: Text(
           canAct
@@ -1241,11 +1254,20 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-    } else if (status == 'menunggu_katim') {
+    } else if (status == 'menunggu_katim' || (status == 'dalam_proses' && PermissionService.isKatim)) {
       final canAct = _canUserComplete;
       DisposisiModel? pendingDisp;
       if (_arsip.listDisposisi.isNotEmpty) {
-        pendingDisp = _arsip.listDisposisi.last;
+        final userJabatan = (PermissionService.jabatanId ?? '').toLowerCase();
+        try {
+          pendingDisp = _arsip.listDisposisi.firstWhere((d) {
+            final target = d.kepadaJabatan.toLowerCase();
+            return d.statusDisposisi.toLowerCase() == 'pending' &&
+                (target.contains(userJabatan) || userJabatan.contains(target) || _isKatimJabatanMatch(d.kepadaJabatan, userJabatan));
+          });
+        } catch (_) {
+          pendingDisp = _arsip.listDisposisi.last;
+        }
       }
       return ElevatedButton.icon(
         onPressed: (canAct && !_loading && !_isSubmitting && pendingDisp != null)
@@ -1254,8 +1276,8 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
         icon: const Icon(Icons.check_circle_outline, color: Colors.white),
         label: Text(
           canAct
-              ? '2. Selesaikan Perintah & Isi Catatan (Katim)'
-              : '2. Penyelesaian Perintah (Hanya Katim Dituju)',
+              ? 'Selesaikan Perintah & Isi Catatan (Katim)'
+              : 'Penyelesaian Perintah (Hanya Katim Dituju)',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
         ),
         style: ElevatedButton.styleFrom(
@@ -1315,21 +1337,35 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('Detail Arsip Surat'),
-          backgroundColor: AppColors.primaryDark,
+          title: const Text(
+            'Detail Arsip Surat',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontFamily: 'Poppins',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 0.5,
+          iconTheme: const IconThemeData(color: AppColors.textPrimary),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.textPrimary,
+              size: 20,
+            ),
             onPressed: () => Navigator.pop(context, _anyEdit),
           ),
           actions: [
             if (_canEditDeleteSurat) ...[
               IconButton(
-                icon: const Icon(Icons.edit_outlined),
+                icon: const Icon(Icons.edit_outlined, color: AppColors.textPrimary),
                 onPressed: (_loading || _isSubmitting) ? null : _editArsip,
                 tooltip: 'Edit Arsip',
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.textPrimary),
                 onPressed: (_loading || _isSubmitting) ? null : _hapusArsip,
                 tooltip: 'Hapus Arsip',
               ),
@@ -1358,7 +1394,8 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                           (_arsip.statusGlobal.toLowerCase() == 'menunggu_karo' ||
                               _arsip.listDisposisi.isEmpty),
                       isKabagActionEnabled: _canUserDisposisi &&
-                          _arsip.statusGlobal.toLowerCase() == 'menunggu_kabag',
+                          (_arsip.statusGlobal.toLowerCase() == 'menunggu_kabag' ||
+                              _arsip.statusGlobal.toLowerCase() == 'dalam_proses'),
                       isSubmitting: _loading || _isSubmitting,
                     ),
                     const SizedBox(height: 20),
@@ -1424,6 +1461,31 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                         ],
                       ),
                     ),
+                    if (_arsip.statusGlobal.toLowerCase() == 'menunggu_katim' ||
+                        (_arsip.statusGlobal.toLowerCase() == 'dalam_proses' && PermissionService.isKatim)) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const KalenderGedungScreen()),
+                            );
+                          },
+                          icon: const Icon(Icons.calendar_month_rounded, color: Colors.white),
+                          label: const Text(
+                            'Booking Jadwal Peminjaman (Buka Kalender)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF59E0B),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 20),
 
                     // TINDAKAN ALUR DISPOSISI
@@ -1687,6 +1749,8 @@ class _SuratDetailScreenState extends State<SuratDetailScreen> {
                           icon: Icons.print_rounded,
                           isLoading: _loading || _isSubmitting,
                           onPressed: () => _unduhDanCetak(),
+                          gradientColors: const [Color(0xFFFBBF24), Color(0xFFF59E0B)],
+                          shadowColor: const Color(0xFFF59E0B),
                         ),
                       ),
                     ] else ...[

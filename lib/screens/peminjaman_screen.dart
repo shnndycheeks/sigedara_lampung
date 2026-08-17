@@ -430,18 +430,18 @@ class _PeminjamanScreenState extends State<PeminjamanScreen>
                   ),
                   decoration: BoxDecoration(
                     color: _filterIndex == i
-                        ? AppColors.primary
+                        ? const Color(0xFFF59E0B)
                         : AppColors.surface,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _filterIndex == i
-                          ? AppColors.primary
+                          ? const Color(0xFFF59E0B)
                           : AppColors.divider,
                     ),
                     boxShadow: _filterIndex == i
                         ? [
                             BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.25),
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.25),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -677,12 +677,12 @@ class _PeminjamanTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.business,
-                  color: AppColors.primary,
+                  color: Color(0xFFF59E0B),
                   size: 20,
                 ),
               ),
@@ -748,7 +748,7 @@ class _InfoChip extends StatelessWidget {
 
   Color _iconColor() {
     if (icon == Icons.calendar_today_outlined) {
-      return AppColors.primary;
+      return const Color(0xFFF59E0B);
     }
 
     return AppColors.textSecondary;
@@ -1174,7 +1174,7 @@ class _FormPinjamanGedungState extends State<_FormPinjamanGedung> {
                       width: 4,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: const Color(0xFFF59E0B),
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1962,6 +1962,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
   bool _isLoading = true;
   List<String> _rooms = [];
   Map<String, String> _roomNameToId = {};
+  Map<String, String> _roomIdToName = {};
 
   List<Map<String, dynamic>> _dbPeminjaman = [];
   List<Map<String, dynamic>> _dbProfiles = [];
@@ -1969,6 +1970,54 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
   // Active bookings for the currently selected room and month
   // Map of day -> List of booking details
   final Map<int, List<Map<String, dynamic>>> _dailyBookings = {};
+
+  String _mapFriendlyNameToDbName(String name) {
+    switch (name) {
+      case 'Gedung Balai Keratun - Ruang Abung':
+        return 'Balai Keratun — Ruang abung';
+      case 'Gedung Balai Keratun - Ruang Sungkai':
+        return 'Balai Keratun — Ruang Sungkai';
+      case 'Gedung Balai Keratun - Balai Keratun Lt. 3':
+        return 'Balai Keratun — balai_keratun_LT3';
+      case 'Gedung Utama - R. Sakai Sambayan':
+        return 'Ruang Sakai Sambaian';
+      case 'Gedung Utama - R. Rapat Utama':
+        return 'Ruang Rapat Utama';
+      case 'Gedung Pusiban - R. Rapat Utama':
+        return 'Ruang rapat Pusiban';
+      case 'Lapangan Tennis Indoor':
+        return 'Lapangan Tenis Indoor';
+      case 'R. Rapat Staff Ahli':
+        return 'Ruang Rapat Staff Ahli';
+      default:
+        return name;
+    }
+  }
+
+  String _mapDbNameToFriendlyName(String dbName) {
+    switch (dbName) {
+      case 'Balai Keratun — Ruang abung':
+        return 'Gedung Balai Keratun - Ruang Abung';
+      case 'Balai Keratun — Ruang Sungkai':
+        return 'Gedung Balai Keratun - Ruang Sungkai';
+      case 'Balai Keratun — balai_keratun_LT3':
+        return 'Gedung Balai Keratun - Balai Keratun Lt. 3';
+      case 'Ruang Sakai Sambaian':
+        return 'Gedung Utama - R. Sakai Sambayan';
+      case 'Ruang Rapat Utama':
+        return 'Gedung Utama - R. Rapat Utama';
+      case 'Ruang rapat Pusiban':
+        return 'Gedung Pusiban - R. Rapat Utama';
+      case 'Lapangan Tenis Indoor':
+        return 'Lapangan Tennis Indoor';
+      case 'Ruang Rapat Staff Ahli':
+        return 'R. Rapat Staff Ahli';
+      case 'R. Rapat Staff Ahli':
+        return 'R. Rapat Staff Ahli';
+      default:
+        return dbName;
+    }
+  }
 
   @override
   void initState() {
@@ -1984,13 +2033,13 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
       final profiles = await DatabaseService.getPegawaiProfiles();
 
       setState(() {
-        _rooms = rooms.map((r) => r['nama'].toString()).toList();
+        final dbRooms = rooms.map((r) => r['nama'].toString()).toList();
+        _rooms = ['Semua Ruangan', ...dbRooms];
         _roomNameToId = {for (final r in rooms) r['nama'].toString(): r['id'].toString()};
+        _roomIdToName = {for (final r in rooms) r['id'].toString(): r['nama'].toString()};
 
-        if (_rooms.isNotEmpty) {
-          if (_selectedRoom.isEmpty || !_rooms.contains(_selectedRoom)) {
-            _selectedRoom = _rooms.first;
-          }
+        if (_selectedRoom.isEmpty || !_rooms.contains(_selectedRoom)) {
+          _selectedRoom = 'Semua Ruangan';
         }
 
         _dbPeminjaman = peminjaman;
@@ -2011,18 +2060,19 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
   void _updateDailyBookings() {
     _dailyBookings.clear();
     final roomId = _roomNameToId[_selectedRoom];
-    if (roomId == null) return;
 
     for (final p in _dbPeminjaman) {
       final tipe = (p['tipe_item'] ?? '').toString().toLowerCase();
       final pItemId = (p['item_id'] ?? '').toString();
       final status = (p['status'] ?? '').toString().toLowerCase();
 
-      if (tipe == 'ruangan' && pItemId == roomId && status != 'ditolak' && status != 'ditarik') {
-        final tglMulai = DateTime.tryParse(p['tanggal_mulai'] ?? '')?.toLocal();
-        if (tglMulai != null && tglMulai.year == _month.year && tglMulai.month == _month.month) {
-          final day = tglMulai.day;
-          _dailyBookings.putIfAbsent(day, () => []).add(p);
+      if (tipe == 'ruangan' && status != 'ditolak' && status != 'ditarik') {
+        if (_selectedRoom == 'Semua Ruangan' || pItemId == roomId) {
+          final tglMulai = DateTime.tryParse(p['tanggal_mulai'] ?? '')?.toLocal();
+          if (tglMulai != null && tglMulai.year == _month.year && tglMulai.month == _month.month) {
+            final day = tglMulai.day;
+            _dailyBookings.putIfAbsent(day, () => []).add(p);
+          }
         }
       }
     }
@@ -2171,7 +2221,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                       style: const TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
+                                        color: Color(0xFFF59E0B),
                                       ),
                                     ),
                                     Container(
@@ -2193,6 +2243,12 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 _dialogRow(Icons.person_outline, 'Pemakai', namaPeminjam),
+                                const SizedBox(height: 4),
+                                _dialogRow(
+                                  Icons.business_outlined,
+                                  'Ruangan',
+                                  _roomIdToName[booking['item_id']?.toString()] ?? '-',
+                                ),
                                 const SizedBox(height: 4),
                                 _dialogRow(Icons.work_outline, 'Keperluan', booking['keperluan']?.toString() ?? '-'),
                               ],
@@ -2260,48 +2316,6 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
         ? rickoProfile['id']?.toString() 
         : 'acd9ea67-f7f6-4170-b92d-71e71deef408';
 
-    String mapFriendlyNameToDbName(String name) {
-      switch (name) {
-        case 'Gedung Balai Keratun - Ruang Abung':
-          return 'Balai Keratun — Ruang abung';
-        case 'Gedung Balai Keratun - Ruang Sungkai':
-          return 'Balai Keratun — Ruang Sungkai';
-        case 'Gedung Balai Keratun - Balai Keratun Lt. 3':
-          return 'Balai Keratun — balai_keratun_LT3';
-        case 'Gedung Utama - R. Sakai Sambayan':
-          return 'Ruang Sakai Sambaian';
-        case 'Gedung Utama - R. Rapat Utama':
-          return 'Ruang Rapat Utama';
-        case 'Gedung Pusiban - R. Rapat Utama':
-          return 'Ruang rapat Pusiban';
-        case 'Lapangan Tennis Indoor':
-          return 'Lapangan Tenis Indoor';
-        default:
-          return name;
-      }
-    }
-
-    String mapDbNameToFriendlyName(String dbName) {
-      switch (dbName) {
-        case 'Balai Keratun — Ruang abung':
-          return 'Gedung Balai Keratun - Ruang Abung';
-        case 'Balai Keratun — Ruang Sungkai':
-          return 'Gedung Balai Keratun - Ruang Sungkai';
-        case 'Balai Keratun — balai_keratun_LT3':
-          return 'Gedung Balai Keratun - Balai Keratun Lt. 3';
-        case 'Ruang Sakai Sambaian':
-          return 'Gedung Utama - R. Sakai Sambayan';
-        case 'Ruang Rapat Utama':
-          return 'Gedung Utama - R. Rapat Utama';
-        case 'Ruang rapat Pusiban':
-          return 'Gedung Pusiban - R. Rapat Utama';
-        case 'Lapangan Tenis Indoor':
-          return 'Lapangan Tennis Indoor';
-        default:
-          return dbName;
-      }
-    }
-
     final List<String> daftarGedung = [
       'Gedung Balai Keratun - Ruang Abung',
       'Gedung Balai Keratun - Ruang Sungkai',
@@ -2318,7 +2332,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
       'Mahan Agung'
     ];
 
-    final initialFriendly = mapDbNameToFriendlyName(_selectedRoom);
+    final initialFriendly = _mapDbNameToFriendlyName(_selectedRoom);
     if (!daftarGedung.contains(initialFriendly)) {
       daftarGedung.add(initialFriendly);
     }
@@ -2403,7 +2417,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
 
             setModalState(() => submitting = true);
             try {
-              final dbRoomName = mapFriendlyNameToDbName(selectedGedungName);
+              final dbRoomName = _mapFriendlyNameToDbName(selectedGedungName);
               final roomId = await DatabaseService.getOrCreateRuangan(dbRoomName);
 
               final keperluanLengkap = [
@@ -2631,7 +2645,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: AppColors.primary),
+        Icon(icon, size: 16, color: const Color(0xFFF59E0B)),
         const SizedBox(width: 10),
         SizedBox(
           width: 80,
@@ -2669,14 +2683,15 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
         title: const Text(
           'Ketersediaan Ruangan',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontFamily: 'Poppins',
             fontSize: 18,
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: AppColors.primary,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -2711,10 +2726,10 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                 vertical: 8,
                               ),
                               decoration: BoxDecoration(
-                                color: sel ? AppColors.primary : AppColors.surface,
+                                color: sel ? const Color(0xFFF59E0B) : AppColors.surface,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: sel ? AppColors.primary : AppColors.divider,
+                                  color: sel ? const Color(0xFFF59E0B) : AppColors.divider,
                                 ),
                               ),
                               child: Text(
@@ -2749,7 +2764,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                 },
                                 icon: const Icon(
                                   Icons.chevron_left,
-                                  color: AppColors.primary,
+                                  color: Color(0xFFF59E0B),
                                 ),
                               ),
                               Text(
@@ -2765,7 +2780,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                 },
                                 icon: const Icon(
                                   Icons.chevron_right,
-                                  color: AppColors.primary,
+                                  color: Color(0xFFF59E0B),
                                 ),
                               ),
                             ],
@@ -2783,7 +2798,7 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
                                         style: AppTextStyles.caption.copyWith(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 11,
-                                          color: AppColors.primary,
+                                          color: const Color(0xFFF59E0B),
                                         ),
                                       ),
                                     ),
@@ -2953,7 +2968,7 @@ class RuanganInfoCard extends StatelessWidget {
         .where((e) => e.isNotEmpty)
         .toList();
 
-    final Color color = AppColors.primary;
+    final Color color = const Color(0xFFF59E0B);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -3017,13 +3032,13 @@ class RuanganInfoCard extends StatelessWidget {
                   Icon(
                     Icons.swipe_left_alt_rounded,
                     size: 14,
-                    color: AppColors.primary,
+                    color: const Color(0xFFF59E0B),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     'Geser foto',
                     style: AppTextStyles.caption.copyWith(
-                      color: AppColors.primary,
+                      color: const Color(0xFFF59E0B),
                       fontWeight: FontWeight.w600,
                       fontSize: 11,
                     ),
@@ -3032,7 +3047,7 @@ class RuanganInfoCard extends StatelessWidget {
                   Icon(
                     Icons.swipe_right_alt_rounded,
                     size: 14,
-                    color: AppColors.primary,
+                    color: const Color(0xFFF59E0B),
                   ),
                 ],
               ),
