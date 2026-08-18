@@ -70,6 +70,23 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
     }
   }
 
+  String _getMonthSearchKeywords(DateTime dt) {
+    final m = dt.month;
+    const fullMonths = [
+      'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+      'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+    ];
+    const shortMonths1 = [
+      'jan', 'feb', 'mar', 'apr', 'mei', 'jun',
+      'jul', 'agu', 'sep', 'okt', 'nov', 'des'
+    ];
+    const shortMonths2 = [
+      'jan', 'peb', 'mar', 'apr', 'mei', 'jun',
+      'jul', 'agt', 'sep', 'okt', 'nop', 'des'
+    ];
+    return '${fullMonths[m - 1]} ${shortMonths1[m - 1]} ${shortMonths2[m - 1]}';
+  }
+
   List<ArsipSurat> _getFilteredArsip(String filterKategori) {
     List<ArsipSurat> temp = _allArsip;
 
@@ -87,7 +104,16 @@ class _AdminSuratScreenState extends State<AdminSuratScreen>
         final dari = s.dari.toLowerCase();
         final kepada = s.kepada.toLowerCase();
         final urgensi = s.tingkatUrgensi.toLowerCase();
-        return nomor.contains(q) || judul.contains(q) || dari.contains(q) || kepada.contains(q) || urgensi.contains(q);
+
+        final dateToUse = s.tanggalSurat ?? s.createdAt;
+        final monthKeys = _getMonthSearchKeywords(dateToUse.toLocal());
+
+        return nomor.contains(q) ||
+            judul.contains(q) ||
+            dari.contains(q) ||
+            kepada.contains(q) ||
+            urgensi.contains(q) ||
+            monthKeys.contains(q);
       }).toList();
     }
 

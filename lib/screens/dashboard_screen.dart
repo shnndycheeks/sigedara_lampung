@@ -1458,34 +1458,119 @@ class _ReminderTile extends StatelessWidget {
 }
 
 class _GlobalSearch extends SearchDelegate {
+  List<Map<String, dynamic>>? _cachedItems;
+
+  Future<List<Map<String, dynamic>>> _fetchItems() async {
+    if (_cachedItems != null) return _cachedItems!;
+
+    final List<Map<String, dynamic>> results = [];
+    try {
+      // 1. Fetch Ruangan
+      try {
+        final list = await DatabaseService.getRuangan();
+        for (var r in list) {
+          final nama = r['nama'] ?? r['nama_ruangan'] ?? r['ruangan'] ?? '';
+          if (nama.toString().isNotEmpty) {
+            results.add({
+              'title': nama.toString().trim(),
+              'subtitle': 'Ruangan • Ketuk untuk memesan',
+              'type': 'ruangan',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching ruangan for search: $e');
+      }
+
+      // 2. Fetch Kendaraan
+      try {
+        final list = await DatabaseService.getKendaraan();
+        for (var k in list) {
+          final nama = k['nama'] ?? k['nama_kendaraan'] ?? k['tipe'] ?? k['jenis'] ?? '';
+          final plat = k['plat_nomor'] ?? k['no_polisi'] ?? k['nomor_polisi'] ?? k['nopol'] ?? '';
+          String title = nama.toString().trim();
+          if (plat.toString().isNotEmpty) {
+            title += ' - ${plat.toString().trim()}';
+          }
+          if (title.isNotEmpty) {
+            results.add({
+              'title': title,
+              'subtitle': 'Kendaraan Dinas • Ketuk untuk meminjam',
+              'type': 'kendaraan',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching kendaraan for search: $e');
+      }
+
+      // 3. Fetch Aset
+      try {
+        final list = await DatabaseService.getAssets();
+        for (var a in list) {
+          final nama = a['nama'] ?? '';
+          final kode = a['kode_asset'] ?? '';
+          String title = nama.toString().trim();
+          if (kode.toString().isNotEmpty) {
+            title += ' [$kode]';
+          }
+          if (title.isNotEmpty) {
+            results.add({
+              'title': title,
+              'subtitle': 'Aset & Inventaris • Ketuk untuk melihat',
+              'type': 'aset',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching assets for search: $e');
+      }
+
+      // Fallback data if database is empty
+      if (results.isEmpty) {
+        results.addAll(_getFallbackItems());
+      }
+
+      _cachedItems = results;
+      return results;
+    } catch (e) {
+      debugPrint('Error global search fetch: $e');
+      return _getFallbackItems();
+    }
+  }
+
+  List<Map<String, dynamic>> _getFallbackItems() {
+    return [
+      {'title': 'Ruang Abung', 'subtitle': 'Ruangan • Ketuk untuk memesan', 'type': 'ruangan'},
+      {'title': 'Ruang Sungkai', 'subtitle': 'Ruangan • Ketuk untuk memesan', 'type': 'ruangan'},
+      {'title': 'Balai Keratun Lt. 3', 'subtitle': 'Ruangan • Ketuk untuk memesan', 'type': 'ruangan'},
+      {'title': 'R. Rapat Utama', 'subtitle': 'Ruangan • Ketuk untuk memesan', 'type': 'ruangan'},
+      {'title': 'Toyota Innova B 1234 XY', 'subtitle': 'Kendaraan Dinas • Ketuk untuk meminjam', 'type': 'kendaraan'},
+      {'title': 'Honda CRV B 5678 AB', 'subtitle': 'Kendaraan Dinas • Ketuk untuk meminjam', 'type': 'kendaraan'},
+      {'title': 'Mitsubishi Pajero B 9999 ZZ', 'subtitle': 'Kendaraan Dinas • Ketuk untuk meminjam', 'type': 'kendaraan'},
+      {'title': 'AC Ruang 201', 'subtitle': 'Aset & Inventaris • Ketuk untuk melihat', 'type': 'aset'},
+      {'title': 'AC Ruang 202', 'subtitle': 'Aset & Inventaris • Ketuk untuk melihat', 'type': 'aset'},
+      {'title': 'Genset Utama', 'subtitle': 'Aset & Inventaris • Ketuk untuk melihat', 'type': 'aset'},
+      {'title': 'Printer Canon A3', 'subtitle': 'Aset & Inventaris • Ketuk untuk melihat', 'type': 'aset'},
+    ];
+  }
+
   @override
   ThemeData appBarTheme(BuildContext context) => ThemeData(
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF0F172A),
+          elevation: 1,
+          iconTheme: IconThemeData(color: Color(0xFF0F172A)),
         ),
         inputDecorationTheme: const InputDecorationTheme(
-          hintStyle: TextStyle(color: Colors.white54),
+          hintStyle: TextStyle(color: Color(0xFF64748B)),
+          border: InputBorder.none,
         ),
         textTheme: const TextTheme(
-          titleLarge: TextStyle(color: Colors.white, fontFamily: 'Poppins'),
+          titleLarge: TextStyle(color: Color(0xFF0F172A), fontFamily: 'Poppins', fontSize: 16),
         ),
       );
-
-  final List<String> _allItems = [
-    'Ruang Abung',
-    'Ruang Sungkai',
-    'Balai Keratun Lt. 3',
-    'R. Rapat Utama',
-    'Toyota Innova B 1234 XY',
-    'Honda CRV B 5678 AB',
-    'Mitsubishi Pajero B 9999 ZZ',
-    'AC Ruang 201',
-    'AC Ruang 202',
-    'Genset Utama',
-    'Printer Canon A3',
-  ];
 
   @override
   List<Widget> buildActions(BuildContext context) => [
@@ -1505,29 +1590,81 @@ class _GlobalSearch extends SearchDelegate {
   Widget buildSuggestions(BuildContext context) => _buildList();
 
   Widget _buildList() {
-    final results = query.isEmpty
-        ? _allItems
-        : _allItems
-            .where((s) => s.toLowerCase().contains(query.toLowerCase()))
-            .toList();
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchItems(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && _cachedItems == null) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        }
 
-    if (results.isEmpty) {
-      return const EmptyState(
-        icon: Icons.search_off,
-        title: 'Tidak ditemukan',
-        subtitle: 'Coba kata kunci lain',
-      );
-    }
+        final items = snapshot.data ?? _cachedItems ?? [];
+        final results = query.isEmpty
+            ? items
+            : items
+                .where((item) => (item['title'] as String)
+                    .toLowerCase()
+                    .contains(query.toLowerCase()))
+                .toList();
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: results.length,
-      separatorBuilder: (_, __) =>
-          const Divider(height: 1, color: AppColors.divider),
-      itemBuilder: (_, i) => ListTile(
-        leading: const Icon(Icons.search, color: AppColors.primary),
-        title: Text(results[i], style: AppTextStyles.body),
-      ),
+        if (results.isEmpty) {
+          return const EmptyState(
+            icon: Icons.search_off,
+            title: 'Tidak ditemukan',
+            subtitle: 'Coba kata kunci lain',
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: results.length,
+          separatorBuilder: (_, __) =>
+              const Divider(height: 1, color: AppColors.divider),
+          itemBuilder: (ctx, i) {
+            final item = results[i];
+            IconData icon = Icons.search;
+            if (item['type'] == 'ruangan') {
+              icon = Icons.meeting_room_outlined;
+            } else if (item['type'] == 'kendaraan') {
+              icon = Icons.directions_car_rounded;
+            } else if (item['type'] == 'aset') {
+              icon = Icons.inventory_2_rounded;
+            }
+
+            return ListTile(
+              leading: Icon(icon, color: AppColors.primary),
+              title: Text(item['title'] as String, style: AppTextStyles.body),
+              subtitle: Text(
+                item['subtitle'] as String,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              onTap: () {
+                // Tutup search screen
+                close(ctx, null);
+
+                // Arahkan ke halaman yang sesuai
+                if (item['type'] == 'ruangan') {
+                  Navigator.push(
+                    ctx,
+                    MaterialPageRoute(builder: (_) => const PeminjamanScreen()),
+                  );
+                } else if (item['type'] == 'kendaraan') {
+                  Navigator.push(
+                    ctx,
+                    MaterialPageRoute(builder: (_) => const KendaraanScreen()),
+                  );
+                } else if (item['type'] == 'aset') {
+                  Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (c) => AsetScreen(onBack: () => Navigator.pop(c)),
+                    ),
+                  );
+                }
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

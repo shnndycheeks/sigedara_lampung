@@ -287,6 +287,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     return false;
   }
 
+  void _showSearch(BuildContext context) {
+    showSearch(context: context, delegate: _AdminGlobalSearch());
+  }
+
   @override
   void dispose() {
     _fadeCtrl.dispose();
@@ -400,7 +404,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               child: Center(
                                 child: IconButton(
                                   icon: const Icon(Icons.search, size: 20, color: Color(0xFF475569)),
-                                  onPressed: () {},
+                                  onPressed: () => _showSearch(context),
                                   padding: EdgeInsets.zero,
                                 ),
                               ),
@@ -1547,6 +1551,247 @@ class _SkeletonBox extends StatelessWidget {
         color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
       ),
+    );
+  }
+}
+
+class _AdminGlobalSearch extends SearchDelegate {
+  List<Map<String, dynamic>>? _cachedItems;
+
+  String _formatIndoDate(DateTime dt) {
+    const months = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+  }
+
+  String _getMonthSearchKeywords(DateTime dt) {
+    final m = dt.month;
+    const fullMonths = [
+      'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+      'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+    ];
+    const shortMonths1 = [
+      'jan', 'feb', 'mar', 'apr', 'mei', 'jun',
+      'jul', 'agu', 'sep', 'okt', 'nov', 'des'
+    ];
+    const shortMonths2 = [
+      'jan', 'peb', 'mar', 'apr', 'mei', 'jun',
+      'jul', 'agt', 'sep', 'okt', 'nop', 'des'
+    ];
+    return '${fullMonths[m - 1]} ${shortMonths1[m - 1]} ${shortMonths2[m - 1]}';
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchItems() async {
+    if (_cachedItems != null) return _cachedItems!;
+
+    final List<Map<String, dynamic>> results = [];
+    try {
+      // 1. Fetch Surat (Arsip Surat)
+      try {
+        final list = await ArsipSuratService.getSemuaArsip();
+        for (var a in list) {
+          final judul = a.judul.isNotEmpty ? a.judul : 'Surat Tanpa Perihal';
+          final dateToUse = a.tanggalSurat ?? a.createdAt;
+          final tglStr = _formatIndoDate(dateToUse.toLocal());
+          final monthKeys = _getMonthSearchKeywords(dateToUse.toLocal());
+          results.add({
+            'title': judul,
+            'subtitle': 'Surat • No: ${a.nomorSurat} • $tglStr',
+            'type': 'surat',
+            'extra': a,
+            'searchable': '${a.nomorSurat} $tglStr $monthKeys ${a.dari} ${a.kepada}',
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching surat for admin search: $e');
+      }
+
+      // 2. Fetch Ruangan
+      try {
+        final list = await DatabaseService.getRuangan();
+        for (var r in list) {
+          final nama = r['nama'] ?? r['nama_ruangan'] ?? r['ruangan'] ?? '';
+          if (nama.toString().isNotEmpty) {
+            results.add({
+              'title': nama.toString().trim(),
+              'subtitle': 'Ruangan • Ketuk untuk membuka tab Peminjaman',
+              'type': 'ruangan',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching ruangan for admin search: $e');
+      }
+
+      // 3. Fetch Kendaraan
+      try {
+        final list = await DatabaseService.getKendaraan();
+        for (var k in list) {
+          final nama = k['nama'] ?? k['nama_kendaraan'] ?? k['tipe'] ?? k['jenis'] ?? '';
+          final plat = k['plat_nomor'] ?? k['no_polisi'] ?? k['nomor_polisi'] ?? k['nopol'] ?? '';
+          String title = nama.toString().trim();
+          if (plat.toString().isNotEmpty) {
+            title += ' - ${plat.toString().trim()}';
+          }
+          if (title.isNotEmpty) {
+            results.add({
+              'title': title,
+              'subtitle': 'Kendaraan Dinas • Ketuk untuk membuka tab Kendaraan',
+              'type': 'kendaraan',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching kendaraan for admin search: $e');
+      }
+
+      // 4. Fetch Aset
+      try {
+        final list = await DatabaseService.getAssets();
+        for (var a in list) {
+          final nama = a['nama'] ?? '';
+          final kode = a['kode_asset'] ?? '';
+          String title = nama.toString().trim();
+          if (kode.toString().isNotEmpty) {
+            title += ' [$kode]';
+          }
+          if (title.isNotEmpty) {
+            results.add({
+              'title': title,
+              'subtitle': 'Aset & Inventaris • Ketuk untuk membuka tab Aset',
+              'type': 'aset',
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching assets for admin search: $e');
+      }
+
+      _cachedItems = results;
+      return results;
+    } catch (e) {
+      debugPrint('Error admin global search fetch: $e');
+      return [];
+    }
+  }
+
+  @override
+  ThemeData appBarTheme(BuildContext context) => ThemeData(
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF0F172A),
+          elevation: 1,
+          iconTheme: IconThemeData(color: Color(0xFF0F172A)),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          hintStyle: TextStyle(color: Color(0xFF64748B)),
+          border: InputBorder.none,
+        ),
+        textTheme: const TextTheme(
+          titleLarge: TextStyle(color: Color(0xFF0F172A), fontFamily: 'Poppins', fontSize: 16),
+        ),
+      );
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        IconButton(icon: const Icon(Icons.clear), onPressed: () => query = ''),
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => close(context, null),
+      );
+
+  @override
+  Widget buildResults(BuildContext context) => _buildList();
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _buildList();
+
+  Widget _buildList() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchItems(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && _cachedItems == null) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        }
+
+        final items = snapshot.data ?? _cachedItems ?? [];
+        final results = query.isEmpty
+            ? items
+            : items
+                .where((item) {
+                  final title = (item['title'] as String).toLowerCase();
+                  final subtitle = (item['subtitle'] as String).toLowerCase();
+                  final searchable = (item['searchable'] as String? ?? '').toLowerCase();
+                  final q = query.toLowerCase();
+                  return title.contains(q) || subtitle.contains(q) || searchable.contains(q);
+                })
+                .toList();
+
+        if (results.isEmpty) {
+          return const EmptyState(
+            icon: Icons.search_off,
+            title: 'Tidak ditemukan',
+            subtitle: 'Coba kata kunci lain',
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: results.length,
+          separatorBuilder: (_, __) =>
+              const Divider(height: 1, color: AppColors.divider),
+          itemBuilder: (ctx, i) {
+            final item = results[i];
+            IconData icon = Icons.search;
+            if (item['type'] == 'surat') {
+              icon = Icons.mail_outline_rounded;
+            } else if (item['type'] == 'ruangan') {
+              icon = Icons.meeting_room_outlined;
+            } else if (item['type'] == 'kendaraan') {
+              icon = Icons.directions_car_rounded;
+            } else if (item['type'] == 'aset') {
+              icon = Icons.inventory_2_rounded;
+            }
+
+            return ListTile(
+              leading: Icon(icon, color: AppColors.primary),
+              title: Text(item['title'] as String, style: AppTextStyles.body),
+              subtitle: Text(
+                item['subtitle'] as String,
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              onTap: () {
+                // Tutup search screen
+                close(ctx, null);
+
+                // Arahkan ke halaman yang sesuai
+                if (item['type'] == 'surat' && item['extra'] != null) {
+                  Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => SuratDetailScreen(surat: item['extra'] as ArsipSurat),
+                    ),
+                  );
+                } else if (item['type'] == 'ruangan') {
+                  // Arahkan ke tab peminjaman di AdminShell (index 1)
+                  NavigationService.goToTabAdmin?.call(1);
+                } else if (item['type'] == 'kendaraan') {
+                  // Arahkan ke tab kendaraan di AdminShell (index 2)
+                  NavigationService.goToTabAdmin?.call(2);
+                } else if (item['type'] == 'aset') {
+                  // Arahkan ke tab aset di AdminShell (index 3)
+                  NavigationService.goToTabAdmin?.call(3);
+                }
+              },
+            );
+          },
+        );
+      },
     );
   }
 }

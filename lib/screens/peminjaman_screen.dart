@@ -1989,6 +1989,8 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
         return 'Lapangan Tenis Indoor';
       case 'R. Rapat Staff Ahli':
         return 'Ruang Rapat Staff Ahli';
+      case 'Ruang VIP Bandara':
+        return 'VIP Bandara';
       default:
         return name;
     }
@@ -2014,6 +2016,8 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
         return 'R. Rapat Staff Ahli';
       case 'R. Rapat Staff Ahli':
         return 'R. Rapat Staff Ahli';
+      case 'VIP Bandara':
+        return 'Ruang VIP Bandara';
       default:
         return dbName;
     }
@@ -2329,7 +2333,8 @@ class _KalenderGedungScreenState extends State<KalenderGedungScreen> {
       'Lapangan Korpri',
       'Lapangan Tennis Indoor',
       'Green Sport Arena',
-      'Mahan Agung'
+      'Mahan Agung',
+      'Ruang VIP Bandara'
     ];
 
     final initialFriendly = _mapDbNameToFriendlyName(_selectedRoom);
