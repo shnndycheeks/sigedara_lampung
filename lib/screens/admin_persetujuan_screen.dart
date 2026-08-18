@@ -508,9 +508,14 @@ class _AdminPersetujuanScreenState extends State<AdminPersetujuanScreen> {
         ),
       );
     } else {
-      if (PermissionService.isAdminGedung) {
+      final isGedungApprover = PermissionService.isAdminGedung ||
+          (PermissionService.isKatim && PermissionService.jabatanId != 'katim_kd_jab');
+      final isKendaraanApprover = PermissionService.isAdminKendaraan ||
+          (PermissionService.isKatim && PermissionService.jabatanId == 'katim_kd_jab');
+
+      if (isGedungApprover) {
         body = _buildPersetujuanTab(_gedungData);
-      } else if (PermissionService.isAdminKendaraan) {
+      } else if (isKendaraanApprover) {
         body = _buildPersetujuanTab(_kendaraanData);
       } else {
         body = const Center(
