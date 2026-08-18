@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -414,15 +415,16 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
 
   Widget _buildSignatureImage(
     String ttdPath, {
-    double width = 90,
-    double height = 45,
+    double width = 95,
+    double height = 48,
   }) {
     if (ttdPath.isEmpty) {
       return _buildFallbackSignature(width, height);
     }
 
+    Widget childWidget;
     if (ttdPath.startsWith('http://') || ttdPath.startsWith('https://')) {
-      return Image.network(
+      childWidget = Image.network(
         ttdPath,
         width: width,
         height: height,
@@ -430,7 +432,7 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
         errorBuilder: (_, __, ___) => _buildFallbackSignature(width, height),
       );
     } else if (ttdPath.startsWith('assets/')) {
-      return Image.asset(
+      childWidget = Image.asset(
         ttdPath,
         width: width,
         height: height,
@@ -438,24 +440,33 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
         errorBuilder: (_, __, ___) => _buildFallbackSignature(width, height),
       );
     } else {
-      return FutureBuilder<String?>(
+      childWidget = FutureBuilder<String?>(
         future: _getSignedSignatureUrl(ttdPath),
         builder: (context, snapshot) {
           final signedUrl = snapshot.data;
           if (signedUrl != null && signedUrl.isNotEmpty) {
-            return Image.network(
-              signedUrl,
-              width: width,
-              height: height,
-              fit: BoxFit.contain,
-              errorBuilder:
-                  (_, __, ___) => _buildFallbackSignature(width, height),
+            return Transform.rotate(
+              angle: -0.04,
+              child: Image.network(
+                signedUrl,
+                width: width,
+                height: height,
+                fit: BoxFit.contain,
+                errorBuilder:
+                    (_, __, ___) => _buildFallbackSignature(width, height),
+              ),
             );
           }
           return _buildFallbackSignature(width, height);
         },
       );
+      return childWidget;
     }
+
+    return Transform.rotate(
+      angle: -0.04, // Slight angle to make signature look natural and hand-signed
+      child: childWidget,
+    );
   }
 
   Future<String?> _getSignedSignatureUrl(String path) async {
@@ -674,14 +685,14 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Image.asset(
-                'assets/images/logo_biro_noBG.png',
-                width: 60,
-                height: 60,
+                'assets/images/logo_lampung.png',
+                width: 55,
+                height: 65,
                 fit: BoxFit.contain,
                 errorBuilder:
                     (_, __, ___) => Container(
-                      width: 50,
-                      height: 50,
+                      width: 55,
+                      height: 65,
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.black, width: 1.5),
                       ),
@@ -741,6 +752,8 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              const SizedBox(width: 55), // Symmetric spacer to center text
             ],
           ),
 
@@ -1015,6 +1028,8 @@ class _SingleLembarDisposisiSheet extends StatelessWidget {
 
                   _buildSignatureImage(
                     lastDisp?.ttdPng ?? signatureDetails['ttd_asset'] ?? '',
+                    width: signatureDetails['title']!.contains('KEPALA BIRO') ? 110 : 95,
+                    height: signatureDetails['title']!.contains('KEPALA BIRO') ? 60 : 48,
                   ),
 
                   const SizedBox(height: 6),
@@ -1078,6 +1093,21 @@ Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
     'Ka. Tim Kerja . Pengelolaan dan Pemeliharaan Kendaraan',
   ];
 
+  // Preload signature images asynchronously
+  pw.MemoryImage? karoImage;
+  try {
+    karoImage = pw.MemoryImage(
+      (await rootBundle.load(karoSig['ttd_asset']!)).buffer.asUint8List(),
+    );
+  } catch (_) {}
+
+  pw.MemoryImage? kabagImage;
+  try {
+    kabagImage = pw.MemoryImage(
+      (await rootBundle.load(kabagSig['ttd_asset']!)).buffer.asUint8List(),
+    );
+  } catch (_) {}
+
   // Sheet 1: KARO PDF Page
   pdf.addPage(
     pw.Page(
@@ -1091,6 +1121,7 @@ Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
           options: optionsKaro,
           disposisiList: listKaro,
           sigPdf: karoSig,
+          ttdImage: karoImage,
         );
       },
     ),
@@ -1112,6 +1143,7 @@ Future<Uint8List> generateLembarDisposisiPdf(ArsipSurat surat) async {
           options: optionsKabag,
           disposisiList: listKabag,
           sigPdf: kabagSig,
+          ttdImage: kabagImage,
         );
       },
     ),
@@ -1127,6 +1159,7 @@ pw.Widget _buildPdfPageSheet({
   required List<String> options,
   required List<DisposisiModel> disposisiList,
   required Map<String, String> sigPdf,
+  pw.MemoryImage? ttdImage,
 }) {
   final instruksi =
       disposisiList.isNotEmpty
@@ -1347,7 +1380,14 @@ pw.Widget _buildPdfPageSheet({
                   ),
                   textAlign: pw.TextAlign.center,
                 ),
-                pw.SizedBox(height: 45),
+                if (ttdImage != null)
+                  pw.Container(
+                    height: sigPdf['title']!.contains('KEPALA BIRO') ? 55 : 45,
+                    width: sigPdf['title']!.contains('KEPALA BIRO') ? 105 : 90,
+                    child: pw.Image(ttdImage, fit: pw.BoxFit.contain),
+                  )
+                else
+                  pw.SizedBox(height: 45),
                 if ((sigPdf['nama'] ?? '').isNotEmpty)
                   pw.Text(
                     sigPdf['nama']!,
