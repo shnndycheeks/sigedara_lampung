@@ -12,13 +12,21 @@ void main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   // INIT SUPABASE
-  await Supabase.initialize(
-    url: SupabaseConfig.url,
-    publishableKey: SupabaseConfig.publishableKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      publishableKey: SupabaseConfig.publishableKey,
+    );
+  } catch (e) {
+    debugPrint("Supabase initialization error: $e");
+  }
 
   // INIT NOTIFICATION
-  await AppNotificationService.init();
+  try {
+    await AppNotificationService.init();
+  } catch (e) {
+    debugPrint("Notification initialization error: $e");
+  }
 
   runApp(const GerCepMajuApp());
 }
